@@ -11,15 +11,21 @@ const client = new Client({
 const CHANNEL_ID = '1507856465803874336';
 const MESSAGE_FILE = 'messageId.txt';
 
+let lastMap = '';
+
 async function updateMapMessage() {
+
     try {
 
         const response = await axios.get(
             'https://api.mozambiquehe.re/maprotation?auth=d1e8a7766be6b62ade1c00a2941bc2b3&version=2'
         );
 
-        const rankedMap = response.data.ranked.current.map;
-        const nextMap = response.data.ranked.next.map;
+        const rankedMap =
+            response.data.ranked.current.map;
+
+        const nextMap =
+            response.data.ranked.next.map;
 
         const currentRemaining =
             response.data.ranked.current.remainingSecs;
@@ -72,57 +78,78 @@ async function updateMapMessage() {
 🕒 Ta končí
 ➜ ${nextHours}:${nextMinutes}`;
 
-        const channel = await client.channels.fetch(CHANNEL_ID);
+        const channel =
+            await client.channels.fetch(CHANNEL_ID);
 
         let message;
 
-        // pokud existuje uložené ID zprávy
+        // pokud mapa zůstala stejná
+        // nic nepřepisuje
+        if (lastMap === rankedMap) {
+
+            console.log('Mapa beze změny');
+
+            return;
+        }
+
+        lastMap = rankedMap;
+
+        // existuje uložená zpráva?
         if (fs.existsSync(MESSAGE_FILE)) {
 
-            const messageId = fs.readFileSync(
-                MESSAGE_FILE,
-                'utf8'
-            );
+            const messageId =
+                fs.readFileSync(MESSAGE_FILE, 'utf8');
 
             try {
 
-                message = await channel.messages.fetch(messageId);
+                message =
+                    await channel.messages.fetch(messageId);
 
                 await message.edit(messageContent);
 
+                console.log('Zpráva upravena');
+
             } catch {
 
-                message = await channel.send(messageContent);
+                message =
+                    await channel.send(messageContent);
 
-                fs.writeFileSync(MESSAGE_FILE, message.id);
+                fs.writeFileSync(
+                    MESSAGE_FILE,
+                    message.id
+                );
+
+                console.log('Vytvořena nová zpráva');
             }
 
         } else {
 
-            message = await channel.send(messageContent);
+            message =
+                await channel.send(messageContent);
 
-            fs.writeFileSync(MESSAGE_FILE, message.id);
+            fs.writeFileSync(
+                MESSAGE_FILE,
+                message.id
+            );
+
+            console.log('První zpráva vytvořena');
         }
-
-        console.log('Mapa aktualizována');
-
-        // čeká přesně do změny mapy
-        setTimeout(updateMapMessage, currentRemaining * 1000);
 
     } catch (error) {
 
         console.error(error);
-
-        // když API spadne, zkusí to znovu za 5 minut
-        setTimeout(updateMapMessage, 5 * 60 * 1000);
     }
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
 
     console.log(`Přihlášen jako ${client.user.tag}`);
 
-    updateMapMessage();
+    // první spuštění
+    await updateMapMessage();
+
+    // kontrola každou minutu
+    setInterval(updateMapMessage, 60 * 1000);
 });
 
 client.login(process.env.TOKEN);

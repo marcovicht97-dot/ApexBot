@@ -19,45 +19,37 @@ async function updateMapMessage() {
             'https://api.mozambiquehe.re/maprotation?auth=d1e8a7766be6b62ade1c00a2941bc2b3&version=2'
         );
 
-        const rankedMap =
-            response.data.ranked.current.map;
+        const ranked = response.data.ranked;
 
-        const nextMap =
-            response.data.ranked.next.map;
+        const currentMap = ranked.current.map;
+        const nextMap = ranked.next.map;
 
-        const currentRemaining =
-            response.data.ranked.current.remainingSecs;
+        // čas do konce aktuální mapy
+        const currentRemainingSecs =
+            ranked.current.remainingSecs;
 
-        const nextRemaining =
-            response.data.ranked.next.DurationInSecs;
+        // délka další mapy
+        const nextDurationSecs =
+            ranked.next.DurationInSecs;
 
-        const currentEnd = new Date(
-            Date.now() + currentRemaining * 1000
-        );
+        // aktuální čas
+        const now = new Date();
 
-        const nextEnd = new Date(
-            currentEnd.getTime() + nextRemaining * 1000
-        );
+        // konec aktuální mapy
+        const currentEnd =
+            new Date(now.getTime() + currentRemainingSecs * 1000);
 
-        const currentHours = currentEnd
-            .getHours()
-            .toString()
-            .padStart(2, '0');
+        // konec další mapy
+        const nextEnd =
+            new Date(currentEnd.getTime() + nextDurationSecs * 1000);
 
-        const currentMinutes = currentEnd
-            .getMinutes()
-            .toString()
-            .padStart(2, '0');
+        function formatTime(date) {
 
-        const nextHours = nextEnd
-            .getHours()
-            .toString()
-            .padStart(2, '0');
-
-        const nextMinutes = nextEnd
-            .getMinutes()
-            .toString()
-            .padStart(2, '0');
+            return date.toLocaleTimeString('cs-CZ', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
 
         const messageContent =
 `╔══════════════╗
@@ -65,23 +57,23 @@ async function updateMapMessage() {
 ╚══════════════╝
 
 🗺️ Aktuální mapa
-➜ ${rankedMap}
+➜ ${currentMap}
 
 ⏰ Končí v
-➜ ${currentHours}:${currentMinutes}
+➜ ${formatTime(currentEnd)}
 
 ➡️ Následující mapa
 ➜ ${nextMap}
 
 🕒 Ta končí
-➜ ${nextHours}:${nextMinutes}`;
+➜ ${formatTime(nextEnd)}`;
 
         const channel =
             await client.channels.fetch(CHANNEL_ID);
 
         let message;
 
-        // existuje uložená zpráva?
+        // jestli už zpráva existuje
         if (fs.existsSync(MESSAGE_FILE)) {
 
             const messageId =
@@ -98,6 +90,7 @@ async function updateMapMessage() {
 
             } catch {
 
+                // když zpráva neexistuje
                 message =
                     await channel.send(messageContent);
 
@@ -111,6 +104,7 @@ async function updateMapMessage() {
 
         } else {
 
+            // první vytvoření zprávy
             message =
                 await channel.send(messageContent);
 
@@ -132,10 +126,10 @@ client.once('ready', async () => {
 
     console.log(`Přihlášen jako ${client.user.tag}`);
 
-    // první spuštění
+    // první aktualizace
     await updateMapMessage();
 
-    // kontrola každou minutu
+    // aktualizace každou minutu
     setInterval(updateMapMessage, 60 * 1000);
 });
 

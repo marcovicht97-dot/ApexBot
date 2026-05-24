@@ -2,14 +2,16 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const axios = require('axios');
+const fs = require('fs');
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
 const CHANNEL_ID = '1507856465803874336';
+const MESSAGE_FILE = 'messageId.txt';
 
-async function sendMapRotation() {
+async function updateMapMessage() {
     try {
 
         const response = await axios.get(
@@ -53,9 +55,7 @@ async function sendMapRotation() {
             .toString()
             .padStart(2, '0');
 
-        const channel = await client.channels.fetch(CHANNEL_ID);
-
-        await channel.send(
+        const messageContent =
 `╔══════════════╗
      🎮 RANKED MAPY
 ╚══════════════╝
@@ -70,24 +70,59 @@ async function sendMapRotation() {
 ➜ ${nextMap}
 
 🕒 Ta končí
-➜ ${nextHours}:${nextMinutes}`
-        );
+➜ ${nextHours}:${nextMinutes}`;
+
+        const channel = await client.channels.fetch(CHANNEL_ID);
+
+        let message;
+
+        // pokud existuje uložené ID zprávy
+        if (fs.existsSync(MESSAGE_FILE)) {
+
+            const messageId = fs.readFileSync(
+                MESSAGE_FILE,
+                'utf8'
+            );
+
+            try {
+
+                message = await channel.messages.fetch(messageId);
+
+                await message.edit(messageContent);
+
+            } catch {
+
+                message = await channel.send(messageContent);
+
+                fs.writeFileSync(MESSAGE_FILE, message.id);
+            }
+
+        } else {
+
+            message = await channel.send(messageContent);
+
+            fs.writeFileSync(MESSAGE_FILE, message.id);
+        }
+
+        console.log('Mapa aktualizována');
 
         // čeká přesně do změny mapy
-        setTimeout(sendMapRotation, currentRemaining * 1000);
+        setTimeout(updateMapMessage, currentRemaining * 1000);
 
     } catch (error) {
+
         console.error(error);
 
         // když API spadne, zkusí to znovu za 5 minut
-        setTimeout(sendMapRotation, 5 * 60 * 1000);
+        setTimeout(updateMapMessage, 5 * 60 * 1000);
     }
 }
 
 client.once('ready', () => {
+
     console.log(`Přihlášen jako ${client.user.tag}`);
 
-    sendMapRotation();
+    updateMapMessage();
 });
 
 client.login(process.env.TOKEN);

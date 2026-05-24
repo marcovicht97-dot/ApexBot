@@ -3,6 +3,17 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const axios = require('axios');
 const fs = require('fs');
+const express = require('express');
+
+const app = express();
+
+app.get('/', (req, res) => {
+    res.send('Apex Ranked BOT běží');
+});
+
+app.listen(process.env.PORT || 3000, () => {
+    console.log('Web server běží');
+});
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
@@ -10,6 +21,9 @@ const client = new Client({
 
 const CHANNEL_ID = '1507856465803874336';
 const MESSAGE_FILE = 'messageId.txt';
+
+// uloží poslední mapu
+let lastMap = null;
 
 async function updateMapMessage() {
 
@@ -21,25 +35,37 @@ async function updateMapMessage() {
 
         const ranked = response.data.ranked;
 
+        // bezpečnostní kontrola
+        if (!ranked || !ranked.current || !ranked.next) {
+            console.log('API vrátilo neplatná data');
+            return;
+        }
+
         const currentMap = ranked.current.map;
         const nextMap = ranked.next.map;
 
-        // čas do konce aktuální mapy
         const currentRemainingSecs =
             ranked.current.remainingSecs;
 
-        // délka další mapy
         const nextDurationSecs =
             ranked.next.DurationInSecs;
 
-        // aktuální čas
+        // ochrana proti bugnutému API
+        if (
+            lastMap === currentMap &&
+            currentRemainingSecs > 7200
+        ) {
+            console.log('Podezřelá data API — ignoruji');
+            return;
+        }
+
+        lastMap = currentMap;
+
         const now = new Date();
 
-        // konec aktuální mapy
         const currentEnd =
             new Date(now.getTime() + currentRemainingSecs * 1000);
 
-        // konec další mapy
         const nextEnd =
             new Date(currentEnd.getTime() + nextDurationSecs * 1000);
 
@@ -66,14 +92,17 @@ async function updateMapMessage() {
 ➜ ${nextMap}
 
 🕒 Ta končí
-➜ ${formatTime(nextEnd)}`;
+➜ ${formatTime(nextEnd)}
+
+🔄 Poslední aktualizace
+➜ ${formatTime(now)}`;
 
         const channel =
             await client.channels.fetch(CHANNEL_ID);
 
         let message;
 
-        // jestli už zpráva existuje
+        // existuje uložená zpráva?
         if (fs.existsSync(MESSAGE_FILE)) {
 
             const messageId =
@@ -90,7 +119,7 @@ async function updateMapMessage() {
 
             } catch {
 
-                // když zpráva neexistuje
+                // zpráva smazána
                 message =
                     await channel.send(messageContent);
 
@@ -104,7 +133,7 @@ async function updateMapMessage() {
 
         } else {
 
-            // první vytvoření zprávy
+            // první vytvoření
             message =
                 await channel.send(messageContent);
 
@@ -118,7 +147,7 @@ async function updateMapMessage() {
 
     } catch (error) {
 
-        console.error(error);
+        console.error('Chyba API nebo Discordu:', error.message);
     }
 }
 
@@ -126,7 +155,7 @@ client.once('ready', async () => {
 
     console.log(`Přihlášen jako ${client.user.tag}`);
 
-    // první aktualizace
+    // okamžitá aktualizace
     await updateMapMessage();
 
     // aktualizace každou minutu

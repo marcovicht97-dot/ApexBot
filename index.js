@@ -55,27 +55,32 @@ async function sendMapRotation() {
 
         const channel = await client.channels.fetch(CHANNEL_ID);
 
-        channel.send(
-`━━━━━━━━━━━━━━
-🎮 RANKED MAPY
+        await channel.send(
+`╔══════════════╗
+     🎮 RANKED MAPY
+╚══════════════╝
 
-🗺️ Aktuální mapa:
-${rankedMap}
+🗺️ Aktuální mapa
+➜ ${rankedMap}
 
-⏰ Končí v:
-${currentHours}:${currentMinutes}
+⏰ Končí v
+➜ ${currentHours}:${currentMinutes}
 
-➡️ Další mapa:
-${nextMap}
+➡️ Následující mapa
+➜ ${nextMap}
 
-🕒 Potom končí:
-${nextHours}:${nextMinutes}
-
-━━━━━━━━━━━━━━`
+🕒 Ta končí
+➜ ${nextHours}:${nextMinutes}`
         );
+
+        // čeká přesně do změny mapy
+        setTimeout(sendMapRotation, currentRemaining * 1000);
 
     } catch (error) {
         console.error(error);
+
+        // když API spadne, zkusí to znovu za 5 minut
+        setTimeout(sendMapRotation, 5 * 60 * 1000);
     }
 }
 
@@ -83,8 +88,6 @@ client.once('ready', () => {
     console.log(`Přihlášen jako ${client.user.tag}`);
 
     sendMapRotation();
-
-    setInterval(sendMapRotation, 60 * 60 * 1000);
 });
 
 client.login(process.env.TOKEN);

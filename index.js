@@ -18,21 +18,60 @@ async function sendMapRotation() {
 
         const rankedMap = response.data.ranked.current.map;
         const nextMap = response.data.ranked.next.map;
-        const remaining = response.data.ranked.current.remainingSecs;
 
-        const nextRotation = new Date(Date.now() + remaining * 1000);
+        const currentRemaining =
+            response.data.ranked.current.remainingSecs;
 
-        const hours = nextRotation.getHours().toString().padStart(2, '0');
-        const minutes = nextRotation.getMinutes().toString().padStart(2, '0');
+        const nextRemaining =
+            response.data.ranked.next.DurationInSecs;
+
+        const currentEnd = new Date(
+            Date.now() + currentRemaining * 1000
+        );
+
+        const nextEnd = new Date(
+            currentEnd.getTime() + nextRemaining * 1000
+        );
+
+        const currentHours = currentEnd
+            .getHours()
+            .toString()
+            .padStart(2, '0');
+
+        const currentMinutes = currentEnd
+            .getMinutes()
+            .toString()
+            .padStart(2, '0');
+
+        const nextHours = nextEnd
+            .getHours()
+            .toString()
+            .padStart(2, '0');
+
+        const nextMinutes = nextEnd
+            .getMinutes()
+            .toString()
+            .padStart(2, '0');
 
         const channel = await client.channels.fetch(CHANNEL_ID);
 
         channel.send(
-`🎮 Ranked mapa: **${rankedMap}**
+`━━━━━━━━━━━━━━
+🎮 RANKED MAPY
 
-🕒 Nová mapa v: **${hours}:${minutes}**
+🗺️ Aktuální mapa:
+${rankedMap}
 
-➡️ Další mapa: **${nextMap}**`
+⏰ Končí v:
+${currentHours}:${currentMinutes}
+
+➡️ Další mapa:
+${nextMap}
+
+🕒 Potom končí:
+${nextHours}:${nextMinutes}
+
+━━━━━━━━━━━━━━`
         );
 
     } catch (error) {

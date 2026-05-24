@@ -17,14 +17,20 @@ async function sendMapRotation() {
         );
 
         const rankedMap = response.data.ranked.current.map;
-        const remaining = response.data.ranked.current.remainingTimer;
         const nextMap = response.data.ranked.next.map;
+        const remaining = response.data.ranked.current.remainingSecs;
+
+        const nextRotation = new Date(Date.now() + remaining * 1000);
+
+        const hours = nextRotation.getHours().toString().padStart(2, '0');
+        const minutes = nextRotation.getMinutes().toString().padStart(2, '0');
 
         const channel = await client.channels.fetch(CHANNEL_ID);
 
         channel.send(
 `🎮 Ranked mapa: **${rankedMap}**
-⌛ Zbývá: ${remaining}
+
+🕒 Nová mapa v: **${hours}:${minutes}**
 
 ➡️ Další mapa: **${nextMap}**`
         );

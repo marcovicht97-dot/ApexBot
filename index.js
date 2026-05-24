@@ -11,8 +11,6 @@ const client = new Client({
 const CHANNEL_ID = '1507856465803874336';
 const MESSAGE_FILE = 'messageId.txt';
 
-let lastMap = '';
-
 async function updateMapMessage() {
 
     try {
@@ -83,17 +81,6 @@ async function updateMapMessage() {
 
         let message;
 
-        // pokud mapa zůstala stejná
-        // nic nepřepisuje
-        if (lastMap === rankedMap) {
-
-            console.log('Mapa beze změny');
-
-            return;
-        }
-
-        lastMap = rankedMap;
-
         // existuje uložená zpráva?
         if (fs.existsSync(MESSAGE_FILE)) {
 
@@ -107,7 +94,7 @@ async function updateMapMessage() {
 
                 await message.edit(messageContent);
 
-                console.log('Zpráva upravena');
+                console.log('Zpráva aktualizována');
 
             } catch {
 

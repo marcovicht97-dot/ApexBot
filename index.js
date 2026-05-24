@@ -1,9 +1,19 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const {
+    Client,
+    GatewayIntentBits,
+    ActivityType,
+    EmbedBuilder
+} = require('discord.js');
+
 const axios = require('axios');
 const fs = require('fs');
 const express = require('express');
+
+//
+// EXPRESS SERVER
+//
 
 const app = express();
 
@@ -11,38 +21,167 @@ app.get('/', (req, res) => {
     res.send('Apex Ranked BOT běží');
 });
 
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 app.listen(process.env.PORT || 3000, () => {
     console.log('Web server běží');
 });
+
+//
+// DISCORD CLIENT
+//
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
+//
+// SETTINGS
+//
+
 const CHANNEL_ID = '1507856465803874336';
+
+// pokud chceš ping role:
+const ROLE_ID = 'SEM_VLOZ_ID_ROLE';
+
 const MESSAGE_FILE = 'messageId.txt';
 
-// uloží poslední mapu
-let lastMap = null;
+//
+// CACHE
+//
+
+let lastMessageData = '';
+let previousMap = '';
+
+//
+// ANTI CRASH
+//
+
+process.on('unhandledRejection', error => {
+    console.error('Unhandled rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error('Uncaught exception:', error);
+});
+
+//
+// DISCORD EVENTS
+//
+
+client.on('disconnect', () => {
+    console.log('Bot odpojen');
+});
+
+client.on('reconnecting', () => {
+    console.log('Bot reconnect');
+});
+
+//
+// FORMAT TIME
+//
+
+function formatTime(date) {
+
+    return date.toLocaleTimeString('cs-CZ', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+//
+// MAPA -> BARVA + OBRÁZEK
+//
+
+function getMapStyle(mapName) {
+
+    switch (mapName) {
+
+        case 'Olympus':
+            return {
+                color: '#4da6ff',
+                image: 'https://i.imgur.com/U0Hwm5D.jpeg'
+            };
+
+        case 'Kings Canyon':
+            return {
+                color: '#3cb371',
+                image: 'https://i.imgur.com/qylN5YB.jpeg'
+            };
+
+        case "World's Edge":
+            return {
+                color: '#ff8c42',
+                image: 'https://i.imgur.com/VBHZK7A.jpeg'
+            };
+
+        case 'Broken Moon':
+            return {
+                color: '#b084f5',
+                image: 'https://i.imgur.com/VP6FqQf.jpeg'
+            };
+
+        case 'Storm Point':
+            return {
+                color: '#00bfa5',
+                image: 'https://i.imgur.com/ktxq8sK.jpeg'
+            };
+
+        default:
+            return {
+                color: '#ff4655',
+                image: null
+            };
+    }
+}
+
+//
+// MAIN FUNCTION
+//
 
 async function updateMapMessage() {
 
     try {
 
+        //
+        // API REQUEST
+        //
+
         const response = await axios.get(
-            'https://api.mozambiquehe.re/maprotation?auth=d1e8a7766be6b62ade1c00a2941bc2b3&version=2'
+            'https://api.mozambiquehe.re/maprotation?auth=d1e8a7766be6b62ade1c00a2941bc2b3&version=2',
+            {
+                timeout: 10000
+            }
         );
 
         const ranked = response.data.ranked;
 
-        // bezpečnostní kontrola
-        if (!ranked || !ranked.current || !ranked.next) {
-            console.log('API vrátilo neplatná data');
+        //
+        // VALIDACE
+        //
+
+        if (
+            !ranked ||
+            !ranked.current ||
+            !ranked.next
+        ) {
+
+            console.log('Neplatná data API');
+
             return;
         }
 
-        const currentMap = ranked.current.map;
-        const nextMap = ranked.next.map;
+        //
+        // MAPY
+        //
+
+        const currentMap =
+            ranked.current.map;
+
+        const nextMap =
+            ranked.next.map;
 
         const currentRemainingSecs =
             ranked.current.remainingSecs;
@@ -50,92 +189,191 @@ async function updateMapMessage() {
         const nextDurationSecs =
             ranked.next.DurationInSecs;
 
-        // ochrana proti bugnutému API
+        //
+        // ANTI BUG
+        //
+
         if (
-            lastMap === currentMap &&
+            currentRemainingSecs < 0 ||
             currentRemainingSecs > 7200
         ) {
-            console.log('Podezřelá data API — ignoruji');
+
+            console.log('Podezřelá API data');
+
             return;
         }
 
-        lastMap = currentMap;
+        //
+        // ČASY
+        //
 
         const now = new Date();
 
         const currentEnd =
-            new Date(now.getTime() + currentRemainingSecs * 1000);
+            new Date(
+                now.getTime() +
+                currentRemainingSecs * 1000
+            );
 
         const nextEnd =
-            new Date(currentEnd.getTime() + nextDurationSecs * 1000);
+            new Date(
+                currentEnd.getTime() +
+                nextDurationSecs * 1000
+            );
 
-        function formatTime(date) {
+        //
+        // STYL MAPY
+        //
 
-            return date.toLocaleTimeString('cs-CZ', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+        const mapStyle =
+            getMapStyle(currentMap);
 
-        const messageContent =
-`╔══════════════╗
-     🎮 RANKED MAPY
-╚══════════════╝
+        //
+        // STATUS BOTA
+        //
 
-🗺️ Aktuální mapa
+        client.user.setActivity(
+            `${currentMap} ➜ ${nextMap}`,
+            {
+                type: ActivityType.Watching
+            }
+        );
+
+        //
+        // EMBED
+        //
+
+        const embed = new EmbedBuilder()
+            .setColor(mapStyle.color)
+            .setTitle('🎮 Apex Ranked Mapy')
+            .setDescription(
+`🗺️ **Aktuální mapa**
 ➜ ${currentMap}
 
-⏰ Končí v
+⏰ **Končí v**
 ➜ ${formatTime(currentEnd)}
 
-➡️ Následující mapa
+➡️ **Následující mapa**
 ➜ ${nextMap}
 
-🕒 Ta končí
+🕒 **Ta končí**
 ➜ ${formatTime(nextEnd)}
 
-🔄 Poslední aktualizace
-➜ ${formatTime(now)}`;
+🔄 **Poslední aktualizace**
+➜ ${formatTime(now)}`
+            )
+            .setThumbnail(mapStyle.image)
+            .setFooter({
+                text: 'Apex Ranked BOT'
+            })
+            .setTimestamp();
+
+        //
+        // ANTI SPAM
+        //
+
+        const currentData =
+            `${currentMap}-${nextMap}-${formatTime(currentEnd)}`;
+
+        if (
+            currentData === lastMessageData
+        ) {
+
+            console.log('Žádná změna');
+
+            return;
+        }
+
+        lastMessageData = currentData;
+
+        //
+        // CHANNEL
+        //
 
         const channel =
             await client.channels.fetch(CHANNEL_ID);
 
         let message;
 
-        // existuje uložená zpráva?
-        if (fs.existsSync(MESSAGE_FILE)) {
+        //
+        // MESSAGE EXISTS?
+        //
+
+        if (
+            fs.existsSync(MESSAGE_FILE)
+        ) {
 
             const messageId =
-                fs.readFileSync(MESSAGE_FILE, 'utf8');
+                fs.readFileSync(
+                    MESSAGE_FILE,
+                    'utf8'
+                );
 
             try {
 
                 message =
                     await channel.messages.fetch(messageId);
 
-                await message.edit(messageContent);
+                //
+                // EDIT MESSAGE
+                //
 
-                console.log('Zpráva aktualizována');
+                await message.edit({
+                    embeds: [embed]
+                });
+
+                console.log('Zpráva upravena');
 
             } catch {
 
-                // zpráva smazána
+                //
+                // DELETE OLD BOT MESSAGES
+                //
+
+                const messages =
+                    await channel.messages.fetch({
+                        limit: 20
+                    });
+
+                const botMessages =
+                    messages.filter(
+                        msg => msg.author.id === client.user.id
+                    );
+
+                for (const msg of botMessages.values()) {
+
+                    try {
+                        await msg.delete();
+                    } catch {}
+                }
+
+                //
+                // SEND NEW MESSAGE
+                //
+
                 message =
-                    await channel.send(messageContent);
+                    await channel.send({
+                        embeds: [embed]
+                    });
 
                 fs.writeFileSync(
                     MESSAGE_FILE,
                     message.id
                 );
 
-                console.log('Vytvořena nová zpráva');
+                console.log('Nová zpráva vytvořena');
             }
 
         } else {
 
-            // první vytvoření
+            //
+            // FIRST MESSAGE
+            //
+
             message =
-                await channel.send(messageContent);
+                await channel.send({
+                    embeds: [embed]
+                });
 
             fs.writeFileSync(
                 MESSAGE_FILE,
@@ -145,21 +383,69 @@ async function updateMapMessage() {
             console.log('První zpráva vytvořena');
         }
 
+        //
+        // ROLE PING PŘI ZMĚNĚ MAPY
+        //
+
+        if (
+            previousMap &&
+            previousMap !== currentMap
+        ) {
+
+            await channel.send(
+                `🔔 <@&${ROLE_ID}> Nová ranked mapa: **${currentMap}**`
+            );
+        }
+
+        previousMap = currentMap;
+
     } catch (error) {
 
-        console.error('Chyba API nebo Discordu:', error.message);
+        console.error(
+            'API/Discord chyba:',
+            error.message
+        );
+
+        //
+        // RETRY
+        //
+
+        setTimeout(() => {
+
+            updateMapMessage();
+
+        }, 15000);
     }
 }
 
+//
+// READY
+//
+
 client.once('ready', async () => {
 
-    console.log(`Přihlášen jako ${client.user.tag}`);
+    console.log(
+        `Přihlášen jako ${client.user.tag}`
+    );
 
-    // okamžitá aktualizace
+    //
+    // FIRST UPDATE
+    //
+
     await updateMapMessage();
 
-    // aktualizace každou minutu
-    setInterval(updateMapMessage, 60 * 1000);
+    //
+    // AUTO UPDATE
+    //
+
+    setInterval(
+        updateMapMessage,
+        60 * 1000
+    );
 });
+
+//
+// LOGIN
+//
 
 client.login(process.env.TOKEN);

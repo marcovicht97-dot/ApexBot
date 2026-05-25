@@ -21,10 +21,6 @@ app.get('/', (req, res) => {
     res.send('Apex Ranked BOT běží');
 });
 
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
-});
-
 app.listen(process.env.PORT || 3000, () => {
     console.log('Web server běží');
 });
@@ -42,57 +38,32 @@ const client = new Client({
 //
 
 const CHANNEL_ID = '1507856465803874336';
-
-// pokud chceš ping role:
-const ROLE_ID = 'SEM_VLOZ_ID_ROLE';
-
 const MESSAGE_FILE = 'messageId.txt';
 
 //
 // CACHE
 //
 
-let lastMessageData = '';
-let previousMap = '';
-
-//
-// ANTI CRASH
-//
-
-process.on('unhandledRejection', error => {
-    console.error('Unhandled rejection:', error);
-});
-
-process.on('uncaughtException', error => {
-    console.error('Uncaught exception:', error);
-});
-
-//
-// DISCORD EVENTS
-//
-
-client.on('disconnect', () => {
-    console.log('Bot odpojen');
-});
-
-client.on('reconnecting', () => {
-    console.log('Bot reconnect');
-});
+let lastMap = '';
+let lastRemaining = '';
 
 //
 // FORMAT TIME
 //
 
-function formatTime(date) {
+function formatRemaining(seconds) {
 
-    return date.toLocaleTimeString('cs-CZ', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    const hours =
+        Math.floor(seconds / 3600);
+
+    const minutes =
+        Math.floor((seconds % 3600) / 60);
+
+    return `${hours}h ${minutes}m`;
 }
 
 //
-// MAPA -> BARVA + OBRÁZEK
+// MAP COLORS + IMAGES
 //
 
 function getMapStyle(mapName) {
@@ -146,7 +117,7 @@ async function updateMapMessage() {
     try {
 
         //
-        // API REQUEST
+        // API
         //
 
         const response = await axios.get(
@@ -168,7 +139,7 @@ async function updateMapMessage() {
             !ranked.next
         ) {
 
-            console.log('Neplatná data API');
+            console.log('Špatná API data');
 
             return;
         }
@@ -183,43 +154,33 @@ async function updateMapMessage() {
         const nextMap =
             ranked.next.map;
 
-        const currentRemainingSecs =
+        //
+        // LIVE ČAS
+        //
+
+        const remainingSecs =
             ranked.current.remainingSecs;
 
-        const nextDurationSecs =
-            ranked.next.DurationInSecs;
-
         //
-        // ANTI BUG
+        // OCHRANA
         //
 
         if (
-            currentRemainingSecs < 0 ||
-            currentRemainingSecs > 7200
+            remainingSecs < 0 ||
+            remainingSecs > 7200
         ) {
 
-            console.log('Podezřelá API data');
+            console.log('Podezřelý čas API');
 
             return;
         }
 
         //
-        // ČASY
+        // FORMÁT
         //
 
-        const now = new Date();
-
-        const currentEnd =
-            new Date(
-                now.getTime() +
-                currentRemainingSecs * 1000
-            );
-
-        const nextEnd =
-            new Date(
-                currentEnd.getTime() +
-                nextDurationSecs * 1000
-            );
+        const remainingFormatted =
+            formatRemaining(remainingSecs);
 
         //
         // STYL MAPY
@@ -229,7 +190,7 @@ async function updateMapMessage() {
             getMapStyle(currentMap);
 
         //
-        // STATUS BOTA
+        // BOT STATUS
         //
 
         client.user.setActivity(
@@ -250,41 +211,20 @@ async function updateMapMessage() {
 `🗺️ **Aktuální mapa**
 ➜ ${currentMap}
 
-⏰ **Končí v**
-➜ ${formatTime(currentEnd)}
+⏰ **Zbývá**
+➜ ${remainingFormatted}
 
 ➡️ **Následující mapa**
 ➜ ${nextMap}
 
-🕒 **Ta končí**
-➜ ${formatTime(nextEnd)}
-
-🔄 **Poslední aktualizace**
-➜ ${formatTime(now)}`
+🔄 **Live aktualizace**
+➜ každou minutu`
             )
             .setThumbnail(mapStyle.image)
             .setFooter({
                 text: 'Apex Ranked BOT'
             })
             .setTimestamp();
-
-        //
-        // ANTI SPAM
-        //
-
-        const currentData =
-            `${currentMap}-${nextMap}-${formatTime(currentEnd)}`;
-
-        if (
-            currentData === lastMessageData
-        ) {
-
-            console.log('Žádná změna');
-
-            return;
-        }
-
-        lastMessageData = currentData;
 
         //
         // CHANNEL
@@ -296,7 +236,7 @@ async function updateMapMessage() {
         let message;
 
         //
-        // MESSAGE EXISTS?
+        // EXISTING MESSAGE
         //
 
         if (
@@ -315,40 +255,21 @@ async function updateMapMessage() {
                     await channel.messages.fetch(messageId);
 
                 //
-                // EDIT MESSAGE
+                // FORCE UPDATE
                 //
 
                 await message.edit({
                     embeds: [embed]
                 });
 
-                console.log('Zpráva upravena');
+                console.log(
+                    `Aktualizace: ${currentMap} (${remainingFormatted})`
+                );
 
             } catch {
 
                 //
-                // DELETE OLD BOT MESSAGES
-                //
-
-                const messages =
-                    await channel.messages.fetch({
-                        limit: 20
-                    });
-
-                const botMessages =
-                    messages.filter(
-                        msg => msg.author.id === client.user.id
-                    );
-
-                for (const msg of botMessages.values()) {
-
-                    try {
-                        await msg.delete();
-                    } catch {}
-                }
-
-                //
-                // SEND NEW MESSAGE
+                // SEND NEW
                 //
 
                 message =
@@ -361,7 +282,7 @@ async function updateMapMessage() {
                     message.id
                 );
 
-                console.log('Nová zpráva vytvořena');
+                console.log('Nová zpráva');
             }
 
         } else {
@@ -380,41 +301,22 @@ async function updateMapMessage() {
                 message.id
             );
 
-            console.log('První zpráva vytvořena');
+            console.log('První zpráva');
         }
 
         //
-        // ROLE PING PŘI ZMĚNĚ MAPY
+        // CACHE
         //
 
-        if (
-            previousMap &&
-            previousMap !== currentMap
-        ) {
-
-            await channel.send(
-                `🔔 <@&${ROLE_ID}> Nová ranked mapa: **${currentMap}**`
-            );
-        }
-
-        previousMap = currentMap;
+        lastMap = currentMap;
+        lastRemaining = remainingFormatted;
 
     } catch (error) {
 
         console.error(
-            'API/Discord chyba:',
+            'Chyba:',
             error.message
         );
-
-        //
-        // RETRY
-        //
-
-        setTimeout(() => {
-
-            updateMapMessage();
-
-        }, 15000);
     }
 }
 
@@ -435,7 +337,7 @@ client.once('ready', async () => {
     await updateMapMessage();
 
     //
-    // AUTO UPDATE
+    // LIVE UPDATE
     //
 
     setInterval(

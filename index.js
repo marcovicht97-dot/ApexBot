@@ -26,14 +26,6 @@ const client = new Client({
 
 const CHANNEL_ID = "1507856465803874336";
 
-const MAP_IMAGES = {
-    "Kings Canyon": "https://i.imgur.com/m4Q8hK.jpeg",
-    "Olympus": "https://i.imgur.com/lK2QmF6.jpeg",
-    "World's Edge": "https://i.imgur.com/f0G6m5h.jpeg",
-    "Storm Point": "https://i.imgur.com/7R6G5m.jpeg",
-    "Broken Moon": "https://i.imgur.com/6kAkP1c.jpeg"
-};
-
 async function updateMap() {
 
     try {
@@ -95,7 +87,6 @@ async function updateMap() {
 🕒 **Ta končí**
 ➡️ ${nextTime}`
             )
-            .setImage(MAP_IMAGES[currentMap] || null)
             .setFooter({
                 text: "Apex Ranked BOT"
             })
@@ -142,7 +133,7 @@ async function updateMap() {
     }
 }
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
 
     console.log(`✅ Přihlášen jako ${client.user.tag}`);
 

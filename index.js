@@ -39,7 +39,7 @@ async function updateMap() {
     try {
 
         const response = await axios.get(
-            "https://api.mozambiquehe.re/maprotation",
+            "https://api.mozambiquehe.re/maprotation?version=2",
             {
                 params: {
                     auth: process.env.APEX_API_KEY
@@ -49,8 +49,9 @@ async function updateMap() {
 
         const ranked = response.data.ranked;
 
-        if (!ranked || !ranked.current || !ranked.next) {
+        if (!ranked) {
             console.log("❌ Apex API nevrátilo ranked data");
+            console.log(response.data);
             return;
         }
 

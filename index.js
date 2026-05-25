@@ -24,7 +24,7 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-const CHANNEL_ID = "SEM_VLOZ_ID_KANALU";
+const CHANNEL_ID = 1507856465803874336;
 
 const MAP_IMAGES = {
     "Kings Canyon": "https://i.imgur.com/6kAkp1c.jpeg",

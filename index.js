@@ -49,6 +49,11 @@ async function updateMap() {
 
         const ranked = response.data.ranked;
 
+        if (!ranked || !ranked.current || !ranked.next) {
+            console.log("❌ Apex API nevrátilo ranked data");
+            return;
+        }
+
         const currentMap = ranked.current.map;
         const nextMap = ranked.next.map;
 

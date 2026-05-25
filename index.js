@@ -1,368 +1,154 @@
-require('dotenv').config();
-
 const {
     Client,
     GatewayIntentBits,
-    ActivityType,
     EmbedBuilder
-} = require('discord.js');
+} = require("discord.js");
 
-const axios = require('axios');
-const fs = require('fs');
-const express = require('express');
+const fs = require("fs");
+require("dotenv").config();
 
-//
-// EXPRESS SERVER
-//
+const axios = require("axios");
+const express = require("express");
 
 const app = express();
 
-app.get('/', (req, res) => {
-    res.send('Apex Ranked BOT běží');
+app.get("/", (req, res) => {
+    res.send("BOT ONLINE");
 });
 
 app.listen(process.env.PORT || 3000, () => {
-    console.log('Web server běží');
+    console.log("🌐 Web server běží");
 });
-
-//
-// DISCORD CLIENT
-//
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-//
-// SETTINGS
-//
+const CHANNEL_ID = "SEM_VLOZ_ID_KANALU";
 
-const CHANNEL_ID = '1507856465803874336';
-const MESSAGE_FILE = './messageId.txt';
-
-//
-// BARVY MAP
-//
-
-function getMapColor(mapName) {
-
-    switch (mapName) {
-
-        case 'Olympus':
-            return '#4da6ff';
-
-        case 'Kings Canyon':
-            return '#3cb371';
-
-        case "World's Edge":
-            return '#ff8c42';
-
-        case 'Broken Moon':
-            return '#b084f5';
-
-        case 'Storm Point':
-            return '#00bfa5';
-
-        default:
-            return '#ff4655';
-    }
-}
-
-//
-// FORMÁT ČASU
-//
-
-function formatTime(date) {
-
-    return date.toLocaleTimeString(
-        'cs-CZ',
-        {
-            hour: '2-digit',
-            minute: '2-digit'
-        }
-    );
-}
-
-//
-// HLAVNÍ UPDATE
-//
+const MAP_IMAGES = {
+    "Kings Canyon": "https://i.imgur.com/6kAkp1c.jpeg",
+    "Olympus": "https://i.imgur.com/rM4Q8hK.jpeg",
+    "World's Edge": "https://i.imgur.com/f0G6m5h.jpeg",
+    "Storm Point": "https://i.imgur.com/lK2QmF6.jpeg",
+    "Broken Moon": "https://i.imgur.com/7R6Gg5m.jpeg"
+};
 
 async function updateMap() {
 
     try {
 
-        //
-        // API REQUEST
-        //
-
         const response = await axios.get(
-            'https://api.mozambiquehe.re/maprotation?auth=d1e8a7766be6b62ade1c00a2941bc2b3&version=2',
+            "https://api.mozambiquehe.re/maprotation",
             {
-                timeout: 10000,
-                headers: {
-                    'Cache-Control': 'no-cache'
+                params: {
+                    auth: process.env.APEX_API_KEY,
+                    version: 2
                 }
             }
         );
 
-        const ranked =
-            response.data.ranked;
+        const currentMap = response.data.ranked.current;
+        const nextMap = response.data.ranked.next;
 
-        //
-        // VALIDACE
-        //
+        const currentEnd = new Date(currentMap.end);
 
-        if (
-            !ranked ||
-            !ranked.current ||
-            !ranked.next
-        ) {
-
-            console.log('❌ API chyba');
-            return;
-        }
-
-        //
-        // MAPY
-        //
-
-        const currentMap =
-            ranked.current.map;
-
-        const nextMap =
-            ranked.next.map;
-
-        //
-        // ČASY
-        //
-
-        const currentRemaining =
-            ranked.current.remainingSecs;
-
-        const nextRemaining =
-            ranked.next.remainingSecs;
-
-        //
-        // OCHRANA
-        //
-
-        if (
-            typeof currentRemaining !== 'number' ||
-            currentRemaining < 0 ||
-            currentRemaining > 7200
-        ) {
-
-            console.log('❌ Špatný čas API');
-            return;
-        }
-
-        //
-        // KONEC AKTUÁLNÍ MAPY
-        //
-
-        const currentEnd =
-            new Date(
-                Date.now() +
-                currentRemaining * 1000
-            );
-
-        //
-        // KONEC DALŠÍ MAPY
-        //
-
-        const nextEnd =
-            new Date(
-                Date.now() +
-                nextRemaining * 1000
-            );
-
-        //
-        // STATUS BOTA
-        //
-
-        client.user.setActivity(
-            `${currentMap} ➜ ${nextMap}`,
-            {
-                type: ActivityType.Watching
-            }
+        const nextEnd = new Date(
+            currentEnd.getTime() + 60 * 60 * 1000
         );
 
-        //
-        // EMBED
-        //
+        const currentEndText = currentEnd.toLocaleTimeString("cs-CZ", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
 
-        const embed =
-            new EmbedBuilder()
-            .setColor(
-                getMapColor(currentMap)
+        const nextEndText = nextEnd.toLocaleTimeString("cs-CZ", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        const embed = new EmbedBuilder()
+            .setColor("#00ff99")
+            .setTitle("🎮 RANKED MAPY")
+            .addFields(
+                {
+                    name: "🗺️ Aktuální mapa",
+                    value: `➜ ${currentMap.map}`,
+                    inline: false
+                },
+                {
+                    name: "⏰ Končí v",
+                    value: `➜ ${currentEndText}`,
+                    inline: false
+                },
+                {
+                    name: "➡️ Následující mapa",
+                    value: `➜ ${nextMap.map}`,
+                    inline: false
+                },
+                {
+                    name: "🕒 Ta končí",
+                    value: `➜ ${nextEndText}`,
+                    inline: false
+                }
             )
-            .setTitle(
-                '🎮 RANKED MAPY'
-            )
-            .setDescription(
-`🗺️ **Aktuální mapa**
-➜ ${currentMap}
-
-⏰ **Končí v**
-➜ ${formatTime(currentEnd)}
-
-➡️ **Následující mapa**
-➜ ${nextMap}
-
-🕒 **Ta končí**
-➜ ${formatTime(nextEnd)}`
-            )
+            .setImage(MAP_IMAGES[currentMap.map] || null)
             .setFooter({
-                text: 'Apex Ranked BOT'
-            })
-            .setTimestamp();
+                text: `Apex Ranked BOT • dnes v ${new Date().toLocaleTimeString("cs-CZ", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                })}`
+            });
 
-        //
-        // CHANNEL
-        //
+        const channel = await client.channels.fetch(CHANNEL_ID);
 
-        const channel =
-            await client.channels.fetch(
-                CHANNEL_ID
-            );
+        let messageId = null;
+
+        if (fs.existsSync("messageId.txt")) {
+            messageId = fs.readFileSync("messageId.txt", "utf8");
+        }
 
         let message;
 
-        //
-        // EXISTUJE MESSAGE ID?
-        //
+        try {
 
-        if (
-            fs.existsSync(
-                MESSAGE_FILE
-            )
-        ) {
+            if (!messageId) throw new Error("Žádné ID");
 
-            const savedId =
-                fs.readFileSync(
-                    MESSAGE_FILE,
-                    'utf8'
-                ).trim();
+            message = await channel.messages.fetch(messageId);
 
-            try {
+            await message.edit({
+                embeds: [embed]
+            });
 
-                //
-                // FETCH STARÉ ZPRÁVY
-                //
+            console.log("✅ Zpráva aktualizována");
 
-                message =
-                    await channel.messages.fetch(
-                        savedId
-                    );
+        } catch (err) {
 
-                //
-                // EDITACE
-                //
+            console.log("⚠️ Původní zpráva nenalezena, vytvářím novou...");
 
-                await message.edit({
-                    embeds: [embed]
-                });
+            const newMessage = await channel.send({
+                embeds: [embed]
+            });
 
-                console.log(
-                    '✅ Embed upraven'
-                );
+            fs.writeFileSync("messageId.txt", newMessage.id);
 
-            } catch (err) {
-
-                //
-                // ZPRÁVA NEEXISTUJE
-                //
-
-                console.log(
-                    '⚠️ Zpráva smazána — vytvářím novou'
-                );
-
-                message =
-                    await channel.send({
-                        embeds: [embed]
-                    });
-
-                //
-                // ULOŽENÍ NOVÉHO ID
-                //
-
-                fs.writeFileSync(
-                    MESSAGE_FILE,
-                    message.id
-                );
-
-                console.log(
-                    '🆕 Nová zpráva vytvořena'
-                );
-            }
-
-        } else {
-
-            //
-            // PRVNÍ ZPRÁVA
-            //
-
-            message =
-                await channel.send({
-                    embeds: [embed]
-                });
-
-            //
-            // ULOŽENÍ ID
-            //
-
-            fs.writeFileSync(
-                MESSAGE_FILE,
-                message.id
-            );
-
-            console.log(
-                '🆕 První zpráva vytvořena'
-            );
+            console.log("✅ Nová zpráva vytvořena a ID uloženo");
         }
 
     } catch (error) {
 
-        console.error(
-            '❌ CHYBA:',
-            error.message
-        );
+        console.log("❌ CHYBA:");
+        console.log(error.message);
     }
 }
 
-//
-// READY
-//
+client.once("ready", async () => {
 
-client.once(
-    'ready',
-    async () => {
+    console.log(`✅ Přihlášen jako ${client.user.tag}`);
 
-        console.log(
-            `✅ Přihlášen jako ${client.user.tag}`
-        );
+    await updateMap();
 
-        //
-        // OKAMŽITÝ UPDATE
-        //
+    setInterval(updateMap, 60000);
+});
 
-        await updateMap();
-
-        //
-        // UPDATE KAŽDOU MINUTU
-        //
-
-        setInterval(
-            updateMap,
-            60 * 1000
-        );
-    }
-);
-
-//
-// LOGIN
-//
-
-client.login(
-    process.env.TOKEN
-);
+client.login(process.env.TOKEN);

@@ -12,7 +12,7 @@ const fs = require('fs');
 const express = require('express');
 
 //
-// EXPRESS KEEP ALIVE
+// EXPRESS SERVER
 //
 
 const app = express();
@@ -101,7 +101,7 @@ function formatRemaining(seconds) {
 }
 
 //
-// MAIN UPDATE
+// UPDATE FUNCTION
 //
 
 async function updateMapMessage() {
@@ -109,7 +109,7 @@ async function updateMapMessage() {
     try {
 
         //
-        // API REQUEST
+        // API
         //
 
         const response = await axios.get(
@@ -130,59 +130,60 @@ async function updateMapMessage() {
         }
 
         //
-        // MAP DATA
+        // MAPS
         //
 
         const currentMap = ranked.current.map;
         const nextMap = ranked.next.map;
 
         //
-        // REAL TIME
+        // TIME
         //
 
-        let remainingSecs = ranked.current.remainingSecs;
-
-        //
-        // OCHRANA PROTI ŠPATNÝM DATŮM
-        //
+        let remainingSecs =
+            ranked.current.remainingSecs;
 
         if (
             typeof remainingSecs !== 'number' ||
             remainingSecs < 0 ||
             remainingSecs > 7200
         ) {
-            console.log('API vrátilo špatný čas');
+            console.log('Špatný čas z API');
             return;
         }
+
+        //
+        // FORMAT
+        //
 
         const remainingFormatted =
             formatRemaining(remainingSecs);
 
         //
-        // NEXT ROTATION TIME
+        // END TIME
         //
 
         const nextRotation =
             new Date(Date.now() + remainingSecs * 1000);
 
-        const nextHours =
+        const hours =
             String(nextRotation.getHours()).padStart(2, '0');
 
-        const nextMinutes =
+        const minutes =
             String(nextRotation.getMinutes()).padStart(2, '0');
 
         const endTime =
-            `${nextHours}:${nextMinutes}`;
+            `${hours}:${minutes}`;
 
         //
-        // MAP STYLE
+        // STYLE
         //
 
         const mapStyle =
             getMapStyle(currentMap);
 
         //
-        // STATUS
+        // BOT STATUS
         //
 
         client.user.setActivity(
@@ -226,33 +227,55 @@ async function updateMapMessage() {
             await client.channels.fetch(CHANNEL_ID);
 
         //
-        // MESSAGE ID
+        // MESSAGE
         //
 
-        const messageId =
-            fs.readFileSync(
+        let messageId = '';
+
+        if (
+            fs.existsSync(MESSAGE_FILE)
+        ) {
+
+            messageId =
+                fs.readFileSync(
+                    MESSAGE_FILE,
+                    'utf8'
+                ).trim();
+        }
+
+        //
+        // EDIT OR CREATE
+        //
+
+        try {
+
+            const message =
+                await channel.messages.fetch(messageId);
+
+            await message.edit({
+                embeds: [embed]
+            });
+
+            console.log(
+                `${currentMap} | konec ${endTime}`
+            );
+
+        } catch {
+
+            const newMessage =
+                await channel.send({
+                    embeds: [embed]
+                });
+
+            fs.writeFileSync(
                 MESSAGE_FILE,
-                'utf8'
-            ).trim();
+                newMessage.id
+            );
 
-        //
-        // FETCH MESSAGE
-        //
-
-        const message =
-            await channel.messages.fetch(messageId);
-
-        //
-        // EDIT MESSAGE
-        //
-
-        await message.edit({
-            embeds: [embed]
-        });
-
-        console.log(
-            `${currentMap} | konec ${endTime}`
-        );
+            console.log(
+                'Vytvořena nová zpráva'
+            );
+        }
 
     } catch (error) {
 
@@ -274,7 +297,7 @@ client.once('ready', async () => {
     );
 
     //
-    // OKAMŽITÁ AKTUALIZACE
+    // FIRST UPDATE
     //
 
     await updateMapMessage();

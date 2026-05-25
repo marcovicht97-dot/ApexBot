@@ -12,7 +12,7 @@ const fs = require('fs');
 const express = require('express');
 
 //
-// EXPRESS SERVER
+// EXPRESS KEEP ALIVE
 //
 
 const app = express();
@@ -41,29 +41,7 @@ const CHANNEL_ID = '1507856465803874336';
 const MESSAGE_FILE = 'messageId.txt';
 
 //
-// CACHE
-//
-
-let lastMap = '';
-let lastRemaining = '';
-
-//
-// FORMAT TIME
-//
-
-function formatRemaining(seconds) {
-
-    const hours =
-        Math.floor(seconds / 3600);
-
-    const minutes =
-        Math.floor((seconds % 3600) / 60);
-
-    return `${hours}h ${minutes}m`;
-}
-
-//
-// MAP COLORS + IMAGES
+// MAP STYLES
 //
 
 function getMapStyle(mapName) {
@@ -109,7 +87,21 @@ function getMapStyle(mapName) {
 }
 
 //
-// MAIN FUNCTION
+// FORMAT TIME
+//
+
+function formatRemaining(seconds) {
+
+    if (seconds < 0) seconds = 0;
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    return `${hours}h ${minutes}m`;
+}
+
+//
+// MAIN UPDATE
 //
 
 async function updateMapMessage() {
@@ -117,80 +109,80 @@ async function updateMapMessage() {
     try {
 
         //
-        // API
+        // API REQUEST
         //
 
         const response = await axios.get(
             'https://api.mozambiquehe.re/maprotation?auth=d1e8a7766be6b62ade1c00a2941bc2b3&version=2',
             {
-                timeout: 10000
+                timeout: 10000,
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
             }
         );
 
         const ranked = response.data.ranked;
 
-        //
-        // VALIDACE
-        //
-
-        if (
-            !ranked ||
-            !ranked.current ||
-            !ranked.next
-        ) {
-
-            console.log('Špatná API data');
-
+        if (!ranked?.current || !ranked?.next) {
+            console.log('API chyba');
             return;
         }
 
         //
-        // MAPY
+        // MAP DATA
         //
 
-        const currentMap =
-            ranked.current.map;
-
-        const nextMap =
-            ranked.next.map;
+        const currentMap = ranked.current.map;
+        const nextMap = ranked.next.map;
 
         //
-        // LIVE ČAS
+        // REAL TIME
         //
 
-        const remainingSecs =
-            ranked.current.remainingSecs;
+        let remainingSecs = ranked.current.remainingSecs;
 
         //
-        // OCHRANA
+        // OCHRANA PROTI ŠPATNÝM DATŮM
         //
 
         if (
+            typeof remainingSecs !== 'number' ||
             remainingSecs < 0 ||
             remainingSecs > 7200
         ) {
-
-            console.log('Podezřelý čas API');
-
+            console.log('API vrátilo špatný čas');
             return;
         }
-
-        //
-        // FORMÁT
-        //
 
         const remainingFormatted =
             formatRemaining(remainingSecs);
 
         //
-        // STYL MAPY
+        // NEXT ROTATION TIME
+        //
+
+        const nextRotation =
+            new Date(Date.now() + remainingSecs * 1000);
+
+        const nextHours =
+            String(nextRotation.getHours()).padStart(2, '0');
+
+        const nextMinutes =
+            String(nextRotation.getMinutes()).padStart(2, '0');
+
+        const endTime =
+            `${nextHours}:${nextMinutes}`;
+
+        //
+        // MAP STYLE
         //
 
         const mapStyle =
             getMapStyle(currentMap);
 
         //
-        // BOT STATUS
+        // STATUS
         //
 
         client.user.setActivity(
@@ -206,18 +198,18 @@ async function updateMapMessage() {
 
         const embed = new EmbedBuilder()
             .setColor(mapStyle.color)
-            .setTitle('🎮 Apex Ranked Mapy')
+            .setTitle('🎮 RANKED MAPY')
             .setDescription(
 `🗺️ **Aktuální mapa**
 ➜ ${currentMap}
 
-⏰ **Zbývá**
-➜ ${remainingFormatted}
+⏰ **Končí v**
+➜ ${endTime}
 
 ➡️ **Následující mapa**
 ➜ ${nextMap}
 
-🔄 **Live aktualizace**
+🔄 **Aktualizace**
 ➜ každou minutu`
             )
             .setThumbnail(mapStyle.image)
@@ -233,88 +225,39 @@ async function updateMapMessage() {
         const channel =
             await client.channels.fetch(CHANNEL_ID);
 
-        let message;
-
         //
-        // EXISTING MESSAGE
+        // MESSAGE ID
         //
 
-        if (
-            fs.existsSync(MESSAGE_FILE)
-        ) {
-
-            const messageId =
-                fs.readFileSync(
-                    MESSAGE_FILE,
-                    'utf8'
-                );
-
-            try {
-
-                message =
-                    await channel.messages.fetch(messageId);
-
-                //
-                // FORCE UPDATE
-                //
-
-                await message.edit({
-                    embeds: [embed]
-                });
-
-                console.log(
-                    `Aktualizace: ${currentMap} (${remainingFormatted})`
-                );
-
-            } catch {
-
-                //
-                // SEND NEW
-                //
-
-                message =
-                    await channel.send({
-                        embeds: [embed]
-                    });
-
-                fs.writeFileSync(
-                    MESSAGE_FILE,
-                    message.id
-                );
-
-                console.log('Nová zpráva');
-            }
-
-        } else {
-
-            //
-            // FIRST MESSAGE
-            //
-
-            message =
-                await channel.send({
-                    embeds: [embed]
-                });
-
-            fs.writeFileSync(
+        const messageId =
+            fs.readFileSync(
                 MESSAGE_FILE,
-                message.id
-            );
-
-            console.log('První zpráva');
-        }
+                'utf8'
+            ).trim();
 
         //
-        // CACHE
+        // FETCH MESSAGE
         //
 
-        lastMap = currentMap;
-        lastRemaining = remainingFormatted;
+        const message =
+            await channel.messages.fetch(messageId);
+
+        //
+        // EDIT MESSAGE
+        //
+
+        await message.edit({
+            embeds: [embed]
+        });
+
+        console.log(
+            `${currentMap} | konec ${endTime}`
+        );
 
     } catch (error) {
 
         console.error(
-            'Chyba:',
+            'CHYBA:',
             error.message
         );
     }
@@ -331,7 +274,7 @@ client.once('ready', async () => {
     );
 
     //
-    // FIRST UPDATE
+    // OKAMŽITÁ AKTUALIZACE
     //
 
     await updateMapMessage();

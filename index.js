@@ -27,11 +27,11 @@ const client = new Client({
 const CHANNEL_ID = "1507856465803874336";
 
 const MAP_IMAGES = {
-    "Kings Canyon": "https://i.imgur.com/6kAkp1c.jpeg",
-    "Olympus": "https://i.imgur.com/rM4Q8hK.jpeg",
+    "Kings Canyon": "https://i.imgur.com/m4Q8hK.jpeg",
+    "Olympus": "https://i.imgur.com/lK2QmF6.jpeg",
     "World's Edge": "https://i.imgur.com/f0G6m5h.jpeg",
-    "Storm Point": "https://i.imgur.com/lK2QmF6.jpeg",
-    "Broken Moon": "https://i.imgur.com/7R6Gg5m.jpeg"
+    "Storm Point": "https://i.imgur.com/7R6G5m.jpeg",
+    "Broken Moon": "https://i.imgur.com/6kAkP1c.jpeg"
 };
 
 async function updateMap() {
@@ -42,63 +42,28 @@ async function updateMap() {
             "https://api.mozambiquehe.re/maprotation",
             {
                 params: {
-                    auth: process.env.APEX_API_KEY,
-                    version: 2
+                    auth: process.env.APEX_API_KEY
                 }
             }
         );
 
-        const currentMap = response.data.ranked.current;
-        const nextMap = response.data.ranked.next;
+        const ranked = response.data.ranked;
 
-        const currentEnd = new Date(currentMap.end);
+        const currentMap = ranked.current.map;
+        const nextMap = ranked.next.map;
 
-        const nextEnd = new Date(
-            currentEnd.getTime() + 60 * 60 * 1000
-        );
+        const currentEnd = new Date(ranked.current.end * 1000);
+        const nextEnd = new Date(ranked.next.end * 1000);
 
-        const currentEndText = currentEnd.toLocaleTimeString("cs-CZ", {
+        const currentTime = currentEnd.toLocaleTimeString("cs-CZ", {
             hour: "2-digit",
             minute: "2-digit"
         });
 
-        const nextEndText = nextEnd.toLocaleTimeString("cs-CZ", {
+        const nextTime = nextEnd.toLocaleTimeString("cs-CZ", {
             hour: "2-digit",
             minute: "2-digit"
         });
-
-        const embed = new EmbedBuilder()
-            .setColor("#00ff99")
-            .setTitle("🎮 RANKED MAPY")
-            .addFields(
-                {
-                    name: "🗺️ Aktuální mapa",
-                    value: `➜ ${currentMap.map}`,
-                    inline: false
-                },
-                {
-                    name: "⏰ Končí v",
-                    value: `➜ ${currentEndText}`,
-                    inline: false
-                },
-                {
-                    name: "➡️ Následující mapa",
-                    value: `➜ ${nextMap.map}`,
-                    inline: false
-                },
-                {
-                    name: "🕒 Ta končí",
-                    value: `➜ ${nextEndText}`,
-                    inline: false
-                }
-            )
-            .setImage(MAP_IMAGES[currentMap.map] || null)
-            .setFooter({
-                text: `Apex Ranked BOT • dnes v ${new Date().toLocaleTimeString("cs-CZ", {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                })}`
-            });
 
         const channel = await client.channels.fetch(CHANNEL_ID);
 
@@ -108,23 +73,52 @@ async function updateMap() {
             messageId = fs.readFileSync("messageId.txt", "utf8");
         }
 
-        let message;
+        const embed = new EmbedBuilder()
+            .setColor("#00ff88")
+            .setTitle("🗺️ RANKED MAPY")
+            .setDescription(
+`🗺️ **Aktuální mapa**
+➡️ ${currentMap}
+
+⏰ **Končí v**
+➡️ ${currentTime}
+
+➡️ **Následující mapa**
+➡️ ${nextMap}
+
+🕒 **Ta končí**
+➡️ ${nextTime}`
+            )
+            .setImage(MAP_IMAGES[currentMap] || null)
+            .setFooter({
+                text: "Apex Ranked BOT"
+            })
+            .setTimestamp();
 
         try {
 
-            if (!messageId) throw new Error("Žádné ID");
+            if (messageId) {
 
-            message = await channel.messages.fetch(messageId);
+                const oldMessage = await channel.messages.fetch(messageId);
 
-            await message.edit({
-                embeds: [embed]
-            });
+                await oldMessage.edit({
+                    embeds: [embed]
+                });
 
-            console.log("✅ Zpráva aktualizována");
+                console.log("✅ Zpráva aktualizována");
 
-        } catch (err) {
+            } else {
 
-            console.log("⚠️ Původní zpráva nenalezena, vytvářím novou...");
+                const newMessage = await channel.send({
+                    embeds: [embed]
+                });
+
+                fs.writeFileSync("messageId.txt", newMessage.id);
+
+                console.log("✅ Nová zpráva vytvořena");
+            }
+
+        } catch {
 
             const newMessage = await channel.send({
                 embeds: [embed]
@@ -132,7 +126,7 @@ async function updateMap() {
 
             fs.writeFileSync("messageId.txt", newMessage.id);
 
-            console.log("✅ Nová zpráva vytvořena a ID uloženo");
+            console.log("✅ Náhradní zpráva vytvořena");
         }
 
     } catch (error) {

@@ -43,6 +43,7 @@ async function updateMap() {
 
         if (!ranked || !ranked.current || !ranked.next) {
             console.log("❌ Apex API nevrátilo ranked data");
+            console.log(JSON.stringify(response.data, null, 2));
             return;
         }
 
@@ -55,7 +56,6 @@ async function updateMap() {
             Date.now() + remainingSecs * 1000
         );
 
-        // Ranked mapa trvá cca 90 minut
         const nextEnd = new Date(
             currentEnd.getTime() + (90 * 60 * 1000)
         );
@@ -95,7 +95,7 @@ async function updateMap() {
 ➡️ ${nextTime}`
             )
             .setFooter({
-                text: "Apex Ranked BOT"
+                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString("cs-CZ")}`
             })
             .setTimestamp();
 
@@ -105,6 +105,10 @@ async function updateMap() {
 
                 const oldMessage =
                     await channel.messages.fetch(messageId);
+
+                console.log("MESSAGE ID:", oldMessage.id);
+                console.log("CHANNEL ID:", oldMessage.channel.id);
+                console.log("LAST EDIT:", oldMessage.editedTimestamp);
 
                 await oldMessage.edit({
                     embeds: [embed]
@@ -129,6 +133,9 @@ async function updateMap() {
 
         } catch (err) {
 
+            console.log("⚠️ Původní zpráva nenalezena");
+            console.log(err.message);
+
             const newMessage =
                 await channel.send({
                     embeds: [embed]
@@ -151,16 +158,11 @@ async function updateMap() {
 
 client.once("clientReady", async () => {
 
-    console.log(
-        `✅ Přihlášen jako ${client.user.tag}`
-    );
+    console.log(`✅ Přihlášen jako ${client.user.tag}`);
 
     await updateMap();
 
-    setInterval(
-        updateMap,
-        60000
-    );
+    setInterval(updateMap, 60000);
 });
 
 client.login(process.env.TOKEN);

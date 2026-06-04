@@ -43,7 +43,6 @@ async function updateMap() {
 
         if (!ranked || !ranked.current || !ranked.next) {
             console.log("❌ Apex API nevrátilo ranked data");
-            console.log(JSON.stringify(response.data, null, 2));
             return;
         }
 
@@ -84,7 +83,7 @@ async function updateMap() {
 
         const embed = new EmbedBuilder()
             .setColor("#00ff88")
-            .setTitle("🗺️ RANKED MAPY")
+            .setTitle(`🧪 TEST ${Date.now()}`)
             .setDescription(
 `🗺️ **Aktuální mapa**
 ➡️ ${currentMap}
@@ -96,7 +95,10 @@ async function updateMap() {
 ➡️ ${nextMap}
 
 🕒 **Ta končí**
-➡️ ${nextTime}`
+➡️ ${nextTime}
+
+🔍 Test času:
+${new Date().toLocaleString("cs-CZ")}`
             )
             .setFooter({
                 text: `Apex Ranked BOT • ${new Date().toLocaleTimeString("cs-CZ")}`

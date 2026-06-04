@@ -61,12 +61,14 @@ async function updateMap() {
 
         const currentTime = currentEnd.toLocaleTimeString("cs-CZ", {
             hour: "2-digit",
-            minute: "2-digit"
+            minute: "2-digit",
+            second: "2-digit"
         });
 
         const nextTime = nextEnd.toLocaleTimeString("cs-CZ", {
             hour: "2-digit",
-            minute: "2-digit"
+            minute: "2-digit",
+            second: "2-digit"
         });
 
         const channel = await client.channels.fetch(CHANNEL_ID);

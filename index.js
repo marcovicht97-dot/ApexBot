@@ -1,145 +1,28 @@
-const {
-    Client,
-    GatewayIntentBits,
-    EmbedBuilder
-} = require("discord.js");
-
-const fs = require("fs");
-require("dotenv").config();
-
-const axios = require("axios");
-const express = require("express");
-
-const app = express();
-
-app.get("/", (req, res) => {
-    res.send("BOT ONLINE");
-});
-
-app.listen(process.env.PORT || 3000, () => {
-    console.log("🌐 Web server běží");
-});
-
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
-});
-
-const CHANNEL_ID = "1507856465803874336";
-
-async function updateMap() {
-
-    try {
-
-        const response = await axios.get(
-            "https://api.mozambiquehe.re/maprotation?version=2",
-            {
-                params: {
-                    auth: process.env.APEX_API_KEY
-                }
-            }
-        );
-
-        const ranked = response.data.ranked;
-
-        if (!ranked) {
-            console.log("❌ Apex API nevrátilo ranked data");
-            console.log(response.data);
-            return;
+const response = await axios.get(
+    "https://api.mozambiquehe.re/maprotation?version=2",
+    {
+        params: {
+            auth: process.env.APEX_API_KEY
         }
-
-        const currentMap = ranked.current.map;
-        const nextMap = ranked.next.map;
-
-        const currentEnd = new Date(ranked.current.end * 1000);
-        const nextEnd = new Date(ranked.next.end * 1000);
-
-        const currentTime = currentEnd.toLocaleTimeString("cs-CZ", {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-
-        const nextTime = nextEnd.toLocaleTimeString("cs-CZ", {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-
-        const channel = await client.channels.fetch(CHANNEL_ID);
-
-        let messageId = null;
-
-        if (fs.existsSync("messageId.txt")) {
-            messageId = fs.readFileSync("messageId.txt", "utf8");
-        }
-
-        const embed = new EmbedBuilder()
-            .setColor("#00ff88")
-            .setTitle("🗺️ RANKED MAPY")
-            .setDescription(
-`🗺️ **Aktuální mapa**
-➡️ ${currentMap}
-
-⏰ **Končí v**
-➡️ ${currentTime}
-
-➡️ **Následující mapa**
-➡️ ${nextMap}
-
-🕒 **Ta končí**
-➡️ ${nextTime}`
-            )
-            .setFooter({
-                text: "Apex Ranked BOT"
-            })
-            .setTimestamp();
-
-        try {
-
-            if (messageId) {
-
-                const oldMessage = await channel.messages.fetch(messageId);
-
-                await oldMessage.edit({
-                    embeds: [embed]
-                });
-
-                console.log("✅ Zpráva aktualizována");
-
-            } else {
-
-                const newMessage = await channel.send({
-                    embeds: [embed]
-                });
-
-                fs.writeFileSync("messageId.txt", newMessage.id);
-
-                console.log("✅ Nová zpráva vytvořena");
-            }
-
-        } catch {
-
-            const newMessage = await channel.send({
-                embeds: [embed]
-            });
-
-            fs.writeFileSync("messageId.txt", newMessage.id);
-
-            console.log("✅ Náhradní zpráva vytvořena");
-        }
-
-    } catch (error) {
-
-        console.log("❌ CHYBA:");
-        console.log(error.message);
     }
+);
+
+console.log("API DATA:");
+console.log(JSON.stringify(response.data, null, 2));
+
+let ranked = null;
+
+// starý formát
+if (response.data.ranked) {
+    ranked = response.data.ranked;
 }
 
-client.once("clientReady", async () => {
+// nový formát
+if (response.data.battle_royale?.ranked) {
+    ranked = response.data.battle_royale.ranked;
+}
 
-    console.log(`✅ Přihlášen jako ${client.user.tag}`);
-
-    await updateMap();
-
-    setInterval(updateMap, 60000);
-});
-
-client.login(process.env.TOKEN);
+if (!ranked) {
+    console.log("❌ Apex API nevrátilo ranked data");
+    return;
+}

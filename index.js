@@ -41,17 +41,24 @@ async function updateMap() {
 
         const ranked = response.data.ranked;
 
-        if (!ranked) {
+        if (!ranked || !ranked.current || !ranked.next) {
             console.log("❌ Apex API nevrátilo ranked data");
-            console.log(response.data);
             return;
         }
 
-        const currentMap = ranked.current.map;
-        const nextMap = ranked.next.map;
+        const currentMap = ranked.current.map || "Neznámá mapa";
+        const nextMap = ranked.next.map || "Neznámá mapa";
 
-        const currentEnd = new Date(ranked.current.end * 1000);
-        const nextEnd = new Date(ranked.next.end * 1000);
+        const remainingSecs = ranked.current.remainingSecs || 0;
+
+        const currentEnd = new Date(
+            Date.now() + remainingSecs * 1000
+        );
+
+        // Ranked mapa trvá cca 90 minut
+        const nextEnd = new Date(
+            currentEnd.getTime() + (90 * 60 * 1000)
+        );
 
         const currentTime = currentEnd.toLocaleTimeString("cs-CZ", {
             hour: "2-digit",
@@ -68,7 +75,7 @@ async function updateMap() {
         let messageId = null;
 
         if (fs.existsSync("messageId.txt")) {
-            messageId = fs.readFileSync("messageId.txt", "utf8");
+            messageId = fs.readFileSync("messageId.txt", "utf8").trim();
         }
 
         const embed = new EmbedBuilder()
@@ -96,7 +103,8 @@ async function updateMap() {
 
             if (messageId) {
 
-                const oldMessage = await channel.messages.fetch(messageId);
+                const oldMessage =
+                    await channel.messages.fetch(messageId);
 
                 await oldMessage.edit({
                     embeds: [embed]
@@ -106,22 +114,30 @@ async function updateMap() {
 
             } else {
 
-                const newMessage = await channel.send({
-                    embeds: [embed]
-                });
+                const newMessage =
+                    await channel.send({
+                        embeds: [embed]
+                    });
 
-                fs.writeFileSync("messageId.txt", newMessage.id);
+                fs.writeFileSync(
+                    "messageId.txt",
+                    newMessage.id
+                );
 
                 console.log("✅ Nová zpráva vytvořena");
             }
 
-        } catch {
+        } catch (err) {
 
-            const newMessage = await channel.send({
-                embeds: [embed]
-            });
+            const newMessage =
+                await channel.send({
+                    embeds: [embed]
+                });
 
-            fs.writeFileSync("messageId.txt", newMessage.id);
+            fs.writeFileSync(
+                "messageId.txt",
+                newMessage.id
+            );
 
             console.log("✅ Náhradní zpráva vytvořena");
         }
@@ -135,11 +151,16 @@ async function updateMap() {
 
 client.once("clientReady", async () => {
 
-    console.log(`✅ Přihlášen jako ${client.user.tag}`);
+    console.log(
+        `✅ Přihlášen jako ${client.user.tag}`
+    );
 
     await updateMap();
 
-    setInterval(updateMap, 60000);
+    setInterval(
+        updateMap,
+        60000
+    );
 });
 
 client.login(process.env.TOKEN);

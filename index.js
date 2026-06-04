@@ -50,6 +50,10 @@ async function updateMap() {
         const currentMap = ranked.current.map || "Neznámá mapa";
         const nextMap = ranked.next.map || "Neznámá mapa";
 
+        console.log("AKTUALNI MAPA:", currentMap);
+        console.log("DALSI MAPA:", nextMap);
+        console.log("REMAINING:", ranked.current.remainingSecs);
+
         const remainingSecs = ranked.current.remainingSecs || 0;
 
         const currentEnd = new Date(

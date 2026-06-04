@@ -49,10 +49,6 @@ async function updateMap() {
         const currentMap = ranked.current.map || "Neznámá mapa";
         const nextMap = ranked.next.map || "Neznámá mapa";
 
-        console.log("AKTUALNI MAPA:", currentMap);
-        console.log("DALSI MAPA:", nextMap);
-        console.log("REMAINING:", ranked.current.remainingSecs);
-
         const remainingSecs = ranked.current.remainingSecs || 0;
 
         const currentEnd = new Date(
@@ -83,7 +79,7 @@ async function updateMap() {
 
         const embed = new EmbedBuilder()
             .setColor("#00ff88")
-            .setTitle(`🧪 TEST ${Date.now()}`)
+            .setTitle("🗺️ RANKED MAPY")
             .setDescription(
 `🗺️ **Aktuální mapa**
 ➡️ ${currentMap}
@@ -95,13 +91,10 @@ async function updateMap() {
 ➡️ ${nextMap}
 
 🕒 **Ta končí**
-➡️ ${nextTime}
-
-🔍 Test času:
-${new Date().toLocaleString("cs-CZ")}`
+➡️ ${nextTime}`
             )
             .setFooter({
-                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString("cs-CZ")}`
+                text: "Apex Ranked BOT"
             })
             .setTimestamp();
 
@@ -111,10 +104,6 @@ ${new Date().toLocaleString("cs-CZ")}`
 
                 const oldMessage =
                     await channel.messages.fetch(messageId);
-
-                console.log("MESSAGE ID:", oldMessage.id);
-                console.log("CHANNEL ID:", oldMessage.channel.id);
-                console.log("LAST EDIT:", oldMessage.editedTimestamp);
 
                 await oldMessage.edit({
                     embeds: [embed]
@@ -137,10 +126,7 @@ ${new Date().toLocaleString("cs-CZ")}`
                 console.log("✅ Nová zpráva vytvořena");
             }
 
-        } catch (err) {
-
-            console.log("⚠️ Původní zpráva nenalezena");
-            console.log(err.message);
+        } catch {
 
             const newMessage =
                 await channel.send({

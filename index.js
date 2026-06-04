@@ -1,47 +1,57 @@
+const {
+    Client,
+    GatewayIntentBits,
+    EmbedBuilder
+} = require("discord.js");
+
+const fs = require("fs");
+require("dotenv").config();
+
+const axios = require("axios");
+const express = require("express");
+
+const app = express();
+
+app.get("/", (req, res) => {
+    res.send("BOT ONLINE");
+});
+
+app.listen(process.env.PORT || 3000, () => {
+    console.log("🌐 Web server běží");
+});
+
+const client = new Client({
+    intents: [GatewayIntentBits.Guilds]
+});
+
+const CHANNEL_ID = "1507856465803874336";
+
 async function updateMap() {
 
     try {
-
-        console.log("🔄 UPDATE:", new Date().toLocaleString("cs-CZ"));
 
         const response = await axios.get(
             "https://api.mozambiquehe.re/maprotation?version=2",
             {
                 params: {
                     auth: process.env.APEX_API_KEY
-                },
-                timeout: 15000
+                }
             }
         );
 
-        console.log("📦 API DATA:");
-        console.log(JSON.stringify(response.data, null, 2));
-
-        let ranked = null;
-
-        if (response.data?.ranked) {
-            ranked = response.data.ranked;
-        }
-
-        if (response.data?.battle_royale?.ranked) {
-            ranked = response.data.battle_royale.ranked;
-        }
+        const ranked = response.data.ranked;
 
         if (!ranked) {
             console.log("❌ Apex API nevrátilo ranked data");
+            console.log(response.data);
             return;
         }
 
-        const currentMap = ranked.current?.map || "Neznámá";
-        const nextMap = ranked.next?.map || "Neznámá";
+        const currentMap = ranked.current.map;
+        const nextMap = ranked.next.map;
 
-        const currentEnd = ranked.current?.end
-            ? new Date(ranked.current.end * 1000)
-            : new Date();
-
-        const nextEnd = ranked.next?.end
-            ? new Date(ranked.next.end * 1000)
-            : new Date();
+        const currentEnd = new Date(ranked.current.end * 1000);
+        const nextEnd = new Date(ranked.next.end * 1000);
 
         const currentTime = currentEnd.toLocaleTimeString("cs-CZ", {
             hour: "2-digit",
@@ -58,7 +68,7 @@ async function updateMap() {
         let messageId = null;
 
         if (fs.existsSync("messageId.txt")) {
-            messageId = fs.readFileSync("messageId.txt", "utf8").trim();
+            messageId = fs.readFileSync("messageId.txt", "utf8");
         }
 
         const embed = new EmbedBuilder()
@@ -82,14 +92,11 @@ async function updateMap() {
             })
             .setTimestamp();
 
-        if (messageId) {
+        try {
 
-            try {
+            if (messageId) {
 
-                console.log("✏️ Edituji zprávu:", messageId);
-
-                const oldMessage =
-                    await channel.messages.fetch(messageId);
+                const oldMessage = await channel.messages.fetch(messageId);
 
                 await oldMessage.edit({
                     embeds: [embed]
@@ -97,57 +104,42 @@ async function updateMap() {
 
                 console.log("✅ Zpráva aktualizována");
 
-            } catch (err) {
-
-                console.log("⚠️ Stará zpráva nenalezena");
-                console.log(err.message);
+            } else {
 
                 const newMessage = await channel.send({
                     embeds: [embed]
                 });
 
-                fs.writeFileSync(
-                    "messageId.txt",
-                    newMessage.id
-                );
+                fs.writeFileSync("messageId.txt", newMessage.id);
 
-                console.log("✅ Vytvořena nová zpráva");
+                console.log("✅ Nová zpráva vytvořena");
             }
 
-        } else {
+        } catch {
 
             const newMessage = await channel.send({
                 embeds: [embed]
             });
 
-            fs.writeFileSync(
-                "messageId.txt",
-                newMessage.id
-            );
+            fs.writeFileSync("messageId.txt", newMessage.id);
 
-            console.log("✅ První zpráva vytvořena");
+            console.log("✅ Náhradní zpráva vytvořena");
         }
 
     } catch (error) {
 
-        console.log("❌ CHYBA UPDATE");
-
-        if (error.response) {
-
-            console.log("STATUS:",
-                error.response.status);
-
-            console.log("DATA:",
-                JSON.stringify(
-                    error.response.data,
-                    null,
-                    2
-                )
-            );
-
-        } else {
-
-            console.log(error.message);
-        }
+        console.log("❌ CHYBA:");
+        console.log(error.message);
     }
 }
+
+client.once("clientReady", async () => {
+
+    console.log(`✅ Přihlášen jako ${client.user.tag}`);
+
+    await updateMap();
+
+    setInterval(updateMap, 60000);
+});
+
+client.login(process.env.TOKEN);

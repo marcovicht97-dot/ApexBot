@@ -76,7 +76,10 @@ async function updateMap() {
         let messageId = null;
 
         if (fs.existsSync("messageId.txt")) {
-            messageId = fs.readFileSync("messageId.txt", "utf8").trim();
+            messageId = fs.readFileSync(
+                "messageId.txt",
+                "utf8"
+            ).trim();
         }
 
         const embed = new EmbedBuilder()
@@ -96,7 +99,7 @@ async function updateMap() {
 ➡️ ${nextTime}`
             )
             .setFooter({
-                text: "Apex Ranked BOT"
+                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString("cs-CZ")}`
             })
             .setTimestamp();
 
@@ -128,7 +131,9 @@ async function updateMap() {
                 console.log("✅ Nová zpráva vytvořena");
             }
 
-        } catch {
+        } catch (error) {
+
+            console.log("⚠️ Původní zpráva nenalezena");
 
             const newMessage =
                 await channel.send({
@@ -152,11 +157,16 @@ async function updateMap() {
 
 client.once("clientReady", async () => {
 
-    console.log(`✅ Přihlášen jako ${client.user.tag}`);
+    console.log(
+        `✅ Přihlášen jako ${client.user.tag}`
+    );
 
     await updateMap();
 
-    setInterval(updateMap, 60000);
+    setInterval(
+        updateMap,
+        60000
+    );
 });
 
 client.login(process.env.TOKEN);

@@ -1,172 +1,332 @@
+require('dotenv').config();
+
 const {
     Client,
     GatewayIntentBits,
+    ActivityType,
     EmbedBuilder
-} = require("discord.js");
+} = require('discord.js');
 
-const fs = require("fs");
-require("dotenv").config();
+const axios = require('axios');
+const fs = require('fs');
+const express = require('express');
 
-const axios = require("axios");
-const express = require("express");
+//
+// EXPRESS SERVER
+//
 
 const app = express();
 
-app.get("/", (req, res) => {
-    res.send("BOT ONLINE");
+app.get('/', (req, res) => {
+    res.send('BOT ONLINE');
 });
 
 app.listen(process.env.PORT || 3000, () => {
-    console.log("🌐 Web server běží");
+    console.log('🌐 Web server běží');
 });
+
+//
+// DISCORD CLIENT
+//
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-const CHANNEL_ID = "1507856465803874336";
+//
+// SETTINGS
+//
+
+const CHANNEL_ID = '1507856465803874336';
+const MESSAGE_FILE = './messageId.txt';
+
+//
+// CACHE PROTI STARÝM DATŮM
+//
+
+let lastMap = null;
+
+//
+// BARVY MAP
+//
+
+function getMapColor(mapName) {
+
+    switch (mapName) {
+
+        case 'Olympus':
+            return '#4da6ff';
+
+        case 'Kings Canyon':
+            return '#3cb371';
+
+        case "World's Edge":
+            return '#ff8c42';
+
+        case 'Broken Moon':
+            return '#b084f5';
+
+        case 'Storm Point':
+            return '#00bfa5';
+
+        default:
+            return '#ff4655';
+    }
+}
+
+//
+// FORMÁT ČASU
+//
+
+function formatTime(date) {
+
+    return date.toLocaleTimeString(
+        'cs-CZ',
+        {
+            hour: '2-digit',
+            minute: '2-digit'
+        }
+    );
+}
+
+//
+// HLAVNÍ UPDATE
+//
 
 async function updateMap() {
 
     try {
 
         const response = await axios.get(
-            "https://api.mozambiquehe.re/maprotation?version=2",
+            'https://api.mozambiquehe.re/maprotation?version=2',
             {
                 params: {
                     auth: process.env.APEX_API_KEY
+                },
+                timeout: 10000,
+                headers: {
+                    'Cache-Control': 'no-cache'
                 }
             }
         );
 
-        const ranked = response.data.ranked;
+        const ranked =
+            response.data.ranked;
 
-        if (!ranked || !ranked.current || !ranked.next) {
-            console.log("❌ Apex API nevrátilo ranked data");
+        if (
+            !ranked ||
+            !ranked.current ||
+            !ranked.next
+        ) {
+
+            console.log('❌ API chyba');
             return;
         }
 
-        const currentMap = ranked.current.map || "Neznámá mapa";
-        const nextMap = ranked.next.map || "Neznámá mapa";
+        const currentMap =
+            ranked.current.map;
 
-        const remainingSecs = ranked.current.remainingSecs || 0;
+        const nextMap =
+            ranked.next.map;
 
-        const currentEnd = new Date(
-            Date.now() + remainingSecs * 1000
-        );
+        const currentRemaining =
+            ranked.current.remainingSecs;
 
-        const nextEnd = new Date(
-            currentEnd.getTime() + (90 * 60 * 1000)
-        );
+        if (
+            typeof currentRemaining !== 'number' ||
+            currentRemaining <= 0
+        ) {
 
-        const currentTime = currentEnd.toLocaleTimeString("cs-CZ", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
-        });
-
-        const nextTime = nextEnd.toLocaleTimeString("cs-CZ", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
-        });
-
-        const channel = await client.channels.fetch(CHANNEL_ID);
-
-        let messageId = null;
-
-        if (fs.existsSync("messageId.txt")) {
-            messageId = fs.readFileSync(
-                "messageId.txt",
-                "utf8"
-            ).trim();
+            console.log('❌ Špatný čas API');
+            return;
         }
 
-        const embed = new EmbedBuilder()
-            .setColor("#00ff88")
-            .setTitle("🗺️ RANKED MAPY")
+        if (
+            lastMap === currentMap &&
+            currentRemaining > 5000
+        ) {
+
+            console.log(
+                '⚠️ API vrátilo stará data'
+            );
+
+            return;
+        }
+
+        lastMap = currentMap;
+
+        const currentEnd =
+            new Date(
+                Date.now() +
+                currentRemaining * 1000
+            );
+
+        const nextEnd =
+            new Date(
+                currentEnd.getTime() +
+                (90 * 60 * 1000)
+            );
+
+        client.user.setActivity(
+            `${currentMap} ➜ ${nextMap}`,
+            {
+                type: ActivityType.Watching
+            }
+        );
+
+        const embed =
+            new EmbedBuilder()
+            .setColor(
+                getMapColor(currentMap)
+            )
+            .setTitle(
+                '🎮 RANKED MAPY'
+            )
             .setDescription(
 `🗺️ **Aktuální mapa**
-➡️ ${currentMap}
+➜ ${currentMap}
 
 ⏰ **Končí v**
-➡️ ${currentTime}
+➜ ${formatTime(currentEnd)}
 
 ➡️ **Následující mapa**
-➡️ ${nextMap}
+➜ ${nextMap}
 
 🕒 **Ta končí**
-➡️ ${nextTime}`
+➜ ${formatTime(nextEnd)}`
             )
             .setFooter({
-                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString("cs-CZ")}`
+                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`
             })
             .setTimestamp();
 
-        try {
+        const channel =
+            await client.channels.fetch(
+                CHANNEL_ID
+            );
 
-            if (messageId) {
+        let message;
 
-                const oldMessage =
-                    await channel.messages.fetch(messageId);
+        if (
+            fs.existsSync(
+                MESSAGE_FILE
+            )
+        ) {
 
-                await oldMessage.edit({
+            const savedId =
+                fs.readFileSync(
+                    MESSAGE_FILE,
+                    'utf8'
+                ).trim();
+
+            if (!savedId) {
+
+                throw new Error(
+                    'messageId.txt je prázdný'
+                );
+            }
+
+            try {
+
+                message =
+                    await channel.messages.fetch(
+                        savedId
+                    );
+
+                await message.edit({
                     embeds: [embed]
                 });
 
-                console.log("✅ Zpráva aktualizována");
+                console.log(
+                    '✅ Embed upraven'
+                );
 
-            } else {
+            } catch (err) {
 
-                const newMessage =
+                console.log(
+                    '⚠️ Zpráva neexistuje — vytvářím novou'
+                );
+
+                message =
                     await channel.send({
                         embeds: [embed]
                     });
 
                 fs.writeFileSync(
-                    "messageId.txt",
-                    newMessage.id
+                    MESSAGE_FILE,
+                    message.id
                 );
 
-                console.log("✅ Nová zpráva vytvořena");
+                console.log(
+                    '🆕 Nová zpráva vytvořena'
+                );
             }
 
-        } catch (error) {
+        } else {
 
-            console.log("⚠️ Původní zpráva nenalezena");
-
-            const newMessage =
+            message =
                 await channel.send({
                     embeds: [embed]
                 });
 
             fs.writeFileSync(
-                "messageId.txt",
-                newMessage.id
+                MESSAGE_FILE,
+                message.id
             );
 
-            console.log("✅ Náhradní zpráva vytvořena");
+            console.log(
+                '🆕 První zpráva vytvořena'
+            );
         }
 
     } catch (error) {
 
-        console.log("❌ CHYBA:");
-        console.log(error.message);
+        console.error(
+            '❌ CHYBA:',
+            error.message
+        );
     }
 }
 
-client.once("clientReady", async () => {
+//
+// READY
+//
 
-    console.log(
-        `✅ Přihlášen jako ${client.user.tag}`
-    );
+client.once(
+    'ready',
+    async () => {
 
-    await updateMap();
+        console.log(
+            `✅ Přihlášen jako ${client.user.tag}`
+        );
 
-    setInterval(
-        updateMap,
-        60000
-    );
-});
+        await updateMap();
 
-client.login(process.env.TOKEN);
+        setInterval(
+            updateMap,
+            60 * 1000
+        );
+    }
+);
+
+//
+// ANTI CRASH
+//
+
+process.on(
+    'unhandledRejection',
+    console.error
+);
+
+process.on(
+    'uncaughtException',
+    console.error
+);
+
+//
+// LOGIN
+//
+
+client.login(
+    process.env.TOKEN
+);

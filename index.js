@@ -206,12 +206,24 @@ async function updateMap() {
                     'utf8'
                 ).trim();
 
-            if (!savedId) {
+           if (!savedId) {
 
-                throw new Error(
-                    'messageId.txt je prázdný'
-                );
-            }
+    message =
+        await channel.send({
+            embeds: [embed]
+        });
+
+    fs.writeFileSync(
+        MESSAGE_FILE,
+        message.id
+    );
+
+    console.log(
+        '🆕 První zpráva vytvořena'
+    );
+
+    return;
+}
 
             try {
 

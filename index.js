@@ -140,17 +140,7 @@ async function updateMap() {
             return;
         }
 
-        if (
-            lastMap === currentMap &&
-            currentRemaining > 5000
-        ) {
 
-            console.log(
-                '⚠️ API vrátilo stará data'
-            );
-
-            return;
-        }
 
         lastMap = currentMap;
 

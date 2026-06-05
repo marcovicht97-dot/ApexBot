@@ -13,7 +13,6 @@ const express = require('express');
 
 //
 // EXPRESS SERVER
-// ANTI RAILWAY SLEEP
 //
 
 const app = express();
@@ -42,7 +41,7 @@ const CHANNEL_ID = '1507856465803874336';
 const MESSAGE_FILE = './messageId.txt';
 
 //
-// CACHE PROTI STARÝM DATŮM
+// ANTI STALE API
 //
 
 let lastMap = null;
@@ -91,35 +90,27 @@ function formatTime(date) {
 }
 
 //
-// HLAVNÍ UPDATE
+// UPDATE MAP
 //
 
 async function updateMap() {
 
     try {
 
-        //
-        // API REQUEST
-        //
-const response = await axios.get(
-    'https://api.mozambiquehe.re/maprotation?version=2',
-    {
-        params: {
-            auth: process.env.APEX_API_KEY
-        },
-        timeout: 10000,
-        headers: {
-            'Cache-Control': 'no-cache'
-        }
-    }
-);
+        const response = await axios.get(
+            'https://api.mozambiquehe.re/maprotation?version=2',
+            {
+                params: {
+                    auth: process.env.APEX_API_KEY
+                },
+                timeout: 10000,
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            }
+        );
 
-        const ranked =
-            response.data.ranked;
-
-        //
-        // VALIDACE
-        //
+        const ranked = response.data.ranked;
 
         if (
             !ranked ||
@@ -131,26 +122,14 @@ const response = await axios.get(
             return;
         }
 
-        //
-        // MAPY
-        //
-
         const currentMap =
             ranked.current.map;
 
         const nextMap =
             ranked.next.map;
 
-        //
-        // ČAS
-        //
-
         const currentRemaining =
             ranked.current.remainingSecs;
-
-        //
-        // VALIDACE ČASU
-        //
 
         if (
             typeof currentRemaining !== 'number' ||
@@ -160,10 +139,6 @@ const response = await axios.get(
             console.log('❌ Špatný čas API');
             return;
         }
-
-        //
-        // OCHRANA PROTI STARÝM DATŮM
-        //
 
         if (
             lastMap === currentMap &&
@@ -179,20 +154,11 @@ const response = await axios.get(
 
         lastMap = currentMap;
 
-        //
-        // KONEC AKTUÁLNÍ MAPY
-        //
-
         const currentEnd =
             new Date(
                 Date.now() +
                 currentRemaining * 1000
             );
-
-        //
-        // DALŠÍ MAPA
-        // ranked = 1h 30m
-        //
 
         const nextEnd =
             new Date(
@@ -200,20 +166,12 @@ const response = await axios.get(
                 (90 * 60 * 1000)
             );
 
-        //
-        // STATUS BOTA
-        //
-
         client.user.setActivity(
             `${currentMap} ➜ ${nextMap}`,
             {
                 type: ActivityType.Watching
             }
         );
-
-        //
-        // EMBED
-        //
 
         const embed =
             new EmbedBuilder()
@@ -237,26 +195,16 @@ const response = await axios.get(
 ➜ ${formatTime(nextEnd)}`
             )
             .setFooter({
-                text: 'Apex Ranked BOT'
+                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`
             })
             .setTimestamp();
-
-        //
-        // CHANNEL
-        //
 
         const channel =
             await client.channels.fetch(
                 CHANNEL_ID
             );
 
-        let message;
-
-        //
-        // EXISTUJE MESSAGE FILE?
-        //
-
-        if (
+        let message;        if (
             fs.existsSync(
                 MESSAGE_FILE
             )
@@ -268,10 +216,6 @@ const response = await axios.get(
                     'utf8'
                 ).trim();
 
-            //
-            // OCHRANA PROTI PRÁZDNÉMU ID
-            //
-
             if (!savedId) {
 
                 throw new Error(
@@ -281,18 +225,10 @@ const response = await axios.get(
 
             try {
 
-                //
-                // FETCH STARÉ ZPRÁVY
-                //
-
                 message =
                     await channel.messages.fetch(
                         savedId
                     );
-
-                //
-                // EDITACE
-                //
 
                 await message.edit({
                     embeds: [embed]
@@ -304,10 +240,6 @@ const response = await axios.get(
 
             } catch (err) {
 
-                //
-                // KDYŽ ZPRÁVA NEEXISTUJE
-                //
-
                 console.log(
                     '⚠️ Zpráva neexistuje — vytvářím novou'
                 );
@@ -316,10 +248,6 @@ const response = await axios.get(
                     await channel.send({
                         embeds: [embed]
                     });
-
-                //
-                // ULOŽ NOVÉ ID
-                //
 
                 fs.writeFileSync(
                     MESSAGE_FILE,
@@ -333,18 +261,10 @@ const response = await axios.get(
 
         } else {
 
-            //
-            // PRVNÍ ZPRÁVA
-            //
-
             message =
                 await channel.send({
                     embeds: [embed]
                 });
-
-            //
-            // ULOŽENÍ ID
-            //
 
             fs.writeFileSync(
                 MESSAGE_FILE,
@@ -358,10 +278,14 @@ const response = await axios.get(
 
     } catch (error) {
 
-console.error('❌ CHYBA CELÁ:');
-console.error(error);
-        
-}
+        console.error(
+            '❌ CHYBA CELÁ:'
+        );
+
+        console.error(
+            error
+        );
+    }
 }
 
 //
@@ -369,22 +293,14 @@ console.error(error);
 //
 
 client.once(
-    'ready',
+    'clientReady',
     async () => {
 
         console.log(
             `✅ Přihlášen jako ${client.user.tag}`
         );
 
-        //
-        // OKAMŽITÝ UPDATE
-        //
-
         await updateMap();
-
-        //
-        // UPDATE KAŽDOU MINUTU
-        //
 
         setInterval(
             updateMap,

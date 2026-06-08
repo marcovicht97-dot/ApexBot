@@ -88,7 +88,16 @@ function formatTime(date) {
         }
     );
 }
+function formatRemaining(seconds) {
 
+    const minutes =
+        Math.floor(seconds / 60);
+
+    const secs =
+        seconds % 60;
+
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 //
 // UPDATE MAP
 //
@@ -175,14 +184,14 @@ async function updateMap() {
 `🗺️ **Aktuální mapa**
 ➜ ${currentMap}
 
-⏰ **Končí v**
-➜ ${formatTime(currentEnd)}
+⏰ **Zbývá**
+➜ ${formatRemaining(currentRemaining)}
 
 ➡️ **Následující mapa**
 ➜ ${nextMap}
 
-🕒 **Ta končí**
-➜ ${formatTime(nextEnd)}`
+🕒 **Začne za**
+➜ ${formatRemaining(currentRemaining)}
             )
             .setFooter({
                 text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`

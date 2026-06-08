@@ -192,8 +192,8 @@ async function updateMap() {
 
 🕒 **Začne za**
 ➜ ${formatRemaining(currentRemaining)}
-            )
-            .setFooter({
+            `)
+.setFooter({
                 text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`
             })
             .setTimestamp();

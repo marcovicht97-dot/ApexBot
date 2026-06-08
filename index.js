@@ -310,7 +310,7 @@ client.once(
         console.log(
             `✅ Přihlášen jako ${client.user.tag}`
         );
-
+console.log("VERZE 2 - ODCET");
         await updateMap();
 
         setInterval(

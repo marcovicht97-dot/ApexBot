@@ -159,11 +159,18 @@ async function updateMap() {
                 currentRemaining * 1000
             );
 
-        const nextEnd =
-            new Date(
-                currentEnd.getTime() +
-                (90 * 60 * 1000)
-            );
+const nextEnd =
+    new Date(
+        currentEnd.getTime() +
+        (90 * 60 * 1000)
+    );
+
+const nextMapEnd =
+    new Date(
+        nextEnd.getTime() +
+        (90 * 60 * 1000)
+    );
+
 
         client.user.setActivity(
             `${currentMap} ➜ ${nextMap}`,
@@ -190,8 +197,8 @@ async function updateMap() {
 ➡️ **Následující mapa**
 ➜ ${nextMap}
 
-🕒 **Začne v**
-➜ ${formatTime(nextEnd)}
+🕒 **Končí v**
+➜ ${formatTime(nextMapEnd)}
             `)
 .setFooter({
                 text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`

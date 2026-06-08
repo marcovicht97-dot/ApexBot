@@ -184,14 +184,14 @@ async function updateMap() {
 `🗺️ **Aktuální mapa**
 ➜ ${currentMap}
 
-⏰ **Zbývá**
-➜ ${formatRemaining(currentRemaining)}
+⏰ **Končí v**
+➜ ${formatTime(currentEnd)}
 
 ➡️ **Následující mapa**
 ➜ ${nextMap}
 
-🕒 **Začne za**
-➜ ${formatRemaining(currentRemaining)}
+🕒 **Začne v**
+➜ ${formatTime(nextEnd)}
             `)
 .setFooter({
                 text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`

@@ -159,16 +159,10 @@ async function updateMap() {
                 currentRemaining * 1000
             );
 
-const nextEnd =
-    new Date(
-        currentEnd.getTime() +
-        (90 * 60 * 1000)
-    );
-
 const nextMapEnd =
     new Date(
-        nextEnd.getTime() +
-        (90 * 60 * 1000)
+        currentEnd.getTime() +
+        (270 * 60 * 1000)
     );
 
 

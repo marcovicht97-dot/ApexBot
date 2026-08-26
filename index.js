@@ -11,44 +11,44 @@ const axios = require('axios');
 const fs = require('fs');
 const express = require('express');
 
-//
+
+// =====================================================
 // EXPRESS SERVER
-//
+// =====================================================
 
 const app = express();
 
 app.get('/', (req, res) => {
-    res.send('BOT ONLINE');
+    res.send('Apex Ranked BOT ONLINE');
 });
 
 app.listen(process.env.PORT || 3000, () => {
     console.log('🌐 Web server běží');
 });
 
-//
+
+// =====================================================
 // DISCORD CLIENT
-//
+// =====================================================
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
+    intents: [
+        GatewayIntentBits.Guilds
+    ]
 });
 
-//
+
+// =====================================================
 // SETTINGS
-//
+// =====================================================
 
 const CHANNEL_ID = '1507856465803874336';
 const MESSAGE_FILE = './messageId.txt';
 
-//
-// ANTI STALE API
-//
 
-let lastMap = null;
-
-//
-// BARVY MAP
-//
+// =====================================================
+// MAP COLORS
+// =====================================================
 
 function getMapColor(mapName) {
 
@@ -69,42 +69,29 @@ function getMapColor(mapName) {
         case 'Storm Point':
             return '#00bfa5';
 
+        case 'E-District':
+            return '#9b59b6';
+
         default:
             return '#ff4655';
     }
 }
 
-//
-// FORMÁT ČASU
-//
 
-function formatTime(date) {
-
-    return date.toLocaleTimeString(
-        'cs-CZ',
-        {
-            hour: '2-digit',
-            minute: '2-digit'
-        }
-    );
-}
-function formatRemaining(seconds) {
-
-    const minutes =
-        Math.floor(seconds / 60);
-
-    const secs =
-        seconds % 60;
-
-    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-}
-//
+// =====================================================
 // UPDATE MAP
-//
+// =====================================================
 
 async function updateMap() {
 
     try {
+
+        console.log('🔄 Načítám data z Apex API...');
+
+
+        // =================================================
+        // API REQUEST
+        // =================================================
 
         const response = await axios.get(
             'https://api.mozambiquehe.re/maprotation?version=2',
@@ -112,14 +99,23 @@ async function updateMap() {
                 params: {
                     auth: process.env.APEX_API_KEY
                 },
+
                 timeout: 10000,
+
                 headers: {
-                    'Cache-Control': 'no-cache'
+                    'Cache-Control': 'no-cache',
+                    'User-Agent': 'Apex-Ranked-Discord-Bot'
                 }
             }
         );
 
+
+        // =================================================
+        // RANKED DATA
+        // =================================================
+
         const ranked = response.data.ranked;
+
 
         if (
             !ranked ||
@@ -127,44 +123,98 @@ async function updateMap() {
             !ranked.next
         ) {
 
-            console.log('❌ API chyba');
-            return;
-        }
-
-        const currentMap =
-            ranked.current.map;
-
-        const nextMap =
-            ranked.next.map;
-
-        const currentRemaining =
-            ranked.current.remainingSecs;
-
-        if (
-            typeof currentRemaining !== 'number' ||
-            currentRemaining <= 0
-        ) {
-
-            console.log('❌ Špatný čas API');
-            return;
-        }
-
-
-
-        lastMap = currentMap;
-
-        const currentEnd =
-            new Date(
-                Date.now() +
-                currentRemaining * 1000
+            console.log(
+                '❌ API nevrátilo správná Ranked data.'
             );
 
-const nextMapEnd =
-    new Date(
-        currentEnd.getTime() +
-        (270 * 60 * 1000)
-    );
+            return;
+        }
 
+
+        // =================================================
+        // CURRENT MAP
+        // =================================================
+
+        const currentMap =
+            ranked.current.map || 'Neznámá mapa';
+
+
+        // =================================================
+        // NEXT MAP
+        // =================================================
+
+        const nextMap =
+            ranked.next.map || 'Neznámá mapa';
+
+
+        // =================================================
+        // DATA PŘÍMO Z API
+        // =================================================
+
+        const currentRemainingTimer =
+            ranked.current.remainingTimer || null;
+
+        const currentReadableStart =
+            ranked.current.readableDate_start || null;
+
+        const currentReadableEnd =
+            ranked.current.readableDate_end || null;
+
+
+        const nextRemainingTimer =
+            ranked.next.remainingTimer || null;
+
+        const nextReadableStart =
+            ranked.next.readableDate_start || null;
+
+        const nextReadableEnd =
+            ranked.next.readableDate_end || null;
+
+
+        // =================================================
+        // KONTROLA DAT
+        // =================================================
+
+        console.log('----------------------------------------');
+
+        console.log(
+            `🗺️ Aktuální mapa: ${currentMap}`
+        );
+
+        console.log(
+            `⏰ Aktuální timer: ${currentRemainingTimer}`
+        );
+
+        console.log(
+            `📅 Start: ${currentReadableStart}`
+        );
+
+        console.log(
+            `📅 Konec: ${currentReadableEnd}`
+        );
+
+        console.log(
+            `➡️ Další mapa: ${nextMap}`
+        );
+
+        console.log(
+            `⏰ Další timer: ${nextRemainingTimer}`
+        );
+
+        console.log(
+            `📅 Start další: ${nextReadableStart}`
+        );
+
+        console.log(
+            `📅 Konec další: ${nextReadableEnd}`
+        );
+
+        console.log('----------------------------------------');
+
+
+        // =================================================
+        // BOT STATUS
+        // =================================================
 
         client.user.setActivity(
             `${currentMap} ➜ ${nextMap}`,
@@ -173,38 +223,81 @@ const nextMapEnd =
             }
         );
 
+
+        // =================================================
+        // DISCORD EMBED
+        // =================================================
+
         const embed =
             new EmbedBuilder()
-            .setColor(
-                getMapColor(currentMap)
-            )
-            .setTitle(
-                '🎮 RANKED MAPY'
-            )
-            .setDescription(
-`🗺️ **Aktuální mapa**
-➜ ${currentMap}
 
-⏰ **Končí v**
-➜ ${formatTime(currentEnd)}
+                .setColor(
+                    getMapColor(currentMap)
+                )
+
+                .setTitle(
+                    '🎮 RANKED MAPY'
+                )
+
+                .setDescription(
+
+`🗺️ **Aktuální mapa**
+➜ **${currentMap}**
+
+⏰ **Končí za**
+➜ **${currentRemainingTimer || 'N/A'}**
+
+📅 **Končí**
+➜ **${currentReadableEnd || 'N/A'}**
 
 ➡️ **Následující mapa**
-➜ ${nextMap}
+➜ **${nextMap}**
 
-🕒 **Končí v**
-➜ ${formatTime(nextMapEnd)}
-            `)
-.setFooter({
-                text: `Apex Ranked BOT • ${new Date().toLocaleTimeString('cs-CZ')}`
-            })
-            .setTimestamp();
+⏰ **Začíná za**
+➜ **${nextRemainingTimer || 'N/A'}**
+
+📅 **Začíná**
+➜ **${nextReadableStart || 'N/A'}**
+
+🕒 **Končí**
+➜ **${nextReadableEnd || 'N/A'}`
+                )
+
+                .setFooter({
+                    text: 'Apex Ranked BOT • Data přímo z Apex API'
+                })
+
+                .setTimestamp();
+
+
+        // =================================================
+        // DISCORD CHANNEL
+        // =================================================
 
         const channel =
             await client.channels.fetch(
                 CHANNEL_ID
             );
 
-        let message;        if (
+
+        if (!channel) {
+
+            console.log(
+                '❌ Discord channel nebyl nalezen.'
+            );
+
+            return;
+        }
+
+
+        // =================================================
+        // EXISTUJÍCÍ MESSAGE
+        // =================================================
+
+        let message = null;
+
+
+        if (
             fs.existsSync(
                 MESSAGE_FILE
             )
@@ -216,93 +309,98 @@ const nextMapEnd =
                     'utf8'
                 ).trim();
 
-           if (!savedId) {
 
-    message =
-        await channel.send({
-            embeds: [embed]
-        });
+            if (savedId) {
 
-    fs.writeFileSync(
-        MESSAGE_FILE,
-        message.id
-    );
+                try {
 
-    console.log(
-        '🆕 První zpráva vytvořena'
-    );
+                    message =
+                        await channel.messages.fetch(
+                            savedId
+                        );
 
-    return;
-}
 
-            try {
-
-                message =
-                    await channel.messages.fetch(
-                        savedId
-                    );
-
-                await message.edit({
-                    embeds: [embed]
-                });
-
-                console.log(
-                    '✅ Embed upraven'
-                );
-
-            } catch (err) {
-
-                console.log(
-                    '⚠️ Zpráva neexistuje — vytvářím novou'
-                );
-
-                message =
-                    await channel.send({
+                    await message.edit({
                         embeds: [embed]
                     });
 
-                fs.writeFileSync(
-                    MESSAGE_FILE,
-                    message.id
-                );
 
-                console.log(
-                    '🆕 Nová zpráva vytvořena'
-                );
+                    console.log(
+                        '✅ Embed aktualizován.'
+                    );
+
+
+                } catch (error) {
+
+                    console.log(
+                        '⚠️ Původní zpráva nebyla nalezena.'
+                    );
+
+                    message = null;
+                }
             }
+        }
 
-        } else {
+
+        // =================================================
+        // NOVÁ MESSAGE
+        // =================================================
+
+        if (!message) {
 
             message =
                 await channel.send({
                     embeds: [embed]
                 });
 
+
             fs.writeFileSync(
                 MESSAGE_FILE,
                 message.id
             );
 
+
             console.log(
-                '🆕 První zpráva vytvořena'
+                '🆕 Nová zpráva vytvořena.'
             );
         }
+
+
+        console.log(
+            '✅ Apex data úspěšně načtena.'
+        );
 
     } catch (error) {
 
         console.error(
-            '❌ CHYBA CELÁ:'
+            '❌ CHYBA PŘI NAČÍTÁNÍ APEX DAT:'
         );
 
-        console.error(
-            error
-        );
+
+        if (error.response) {
+
+            console.error(
+                'HTTP:',
+                error.response.status
+            );
+
+            console.error(
+                error.response.data
+            );
+
+        } else {
+
+            console.error(
+                error.message
+            );
+        }
     }
 }
 
-//
-// READY
-//
+
+// =====================================================
+// DISCORD READY
+// =====================================================
 
 client.once(
     'clientReady',
@@ -311,33 +409,81 @@ client.once(
         console.log(
             `✅ Přihlášen jako ${client.user.tag}`
         );
-console.log("VERZE 2 - ODCET");
+
+
+        // První update ihned
         await updateMap();
 
+
+        // Aktualizace každou minutu
         setInterval(
             updateMap,
             60 * 1000
         );
+
     }
 );
 
-//
-// ANTI CRASH
-//
+
+// =====================================================
+// ERROR HANDLING
+// =====================================================
 
 process.on(
     'unhandledRejection',
-    console.error
+    (error) => {
+
+        console.error(
+            '❌ UNHANDLED REJECTION:'
+        );
+
+        console.error(error);
+
+    }
 );
+
 
 process.on(
     'uncaughtException',
-    console.error
+    (error) => {
+
+        console.error(
+            '❌ UNCAUGHT EXCEPTION:'
+        );
+
+        console.error(error);
+
+    }
 );
 
-//
+
+// =====================================================
+// ENV CHECK
+// =====================================================
+
+if (!process.env.TOKEN) {
+
+    console.error(
+        '❌ Chybí TOKEN v .env'
+    );
+
+    process.exit(1);
+}
+
+
+if (!process.env.APEX_API_KEY) {
+
+    console.error(
+        '❌ Chybí APEX_API_KEY v .env'
+    );
+
+    process.exit(1);
+}
+
+
+// =====================================================
 // LOGIN
-//
+// =====================================================
 
 client.login(
     process.env.TOKEN
